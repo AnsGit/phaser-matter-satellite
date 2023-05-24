@@ -1,0 +1,82 @@
+body {
+  font-family: sans-serif;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  margin: 0;
+  user-select: none;
+}
+
+#game-container {
+  position: relative;
+}
+
+b {
+  display: contents;
+}
+
+.task-title {
+  position: absolute;
+  left: 20px;
+  top: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: left;
+  font-size: 20px;
+  line-height: 24px;
+  color: #fff;
+}
+
+.counter {
+  position: absolute;
+  width: 232px;
+  height: 166px;
+  right: 24px;
+  bottom: 96px;
+  background: #EAE6FF;
+  border-radius: 16px;
+}
+
+.buttons {
+  position: absolute;
+  display: flex;
+  right: 24px;
+  bottom: 24px;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  background-color: #FFFFFF;
+  border-radius: 16px;
+  box-sizing: border-box;
+}
+
+.button:not(.disabled):hover {
+  cursor: pointer;
+}
+
+.button.reset {
+  width: 48px;
+  margin-right: 16px;
+  background-image: url('../assets/icon-reset.svg');
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+}
+
+.button.run {
+}
+
+.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.disabled {
+  pointer-events: none;
+}

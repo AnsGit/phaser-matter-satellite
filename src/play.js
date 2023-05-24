@@ -1,0 +1,309 @@
+// import Phaser from "phaser";
+import Phaser from "./phaser.js";
+import _ from "underscore";
+import $ from "jquery";
+
+import config from "./config.js";
+
+class Play extends Phaser.Scene {
+  graphics;
+
+  preload() {
+    this.load.image("planet", require("../assets/planet.png"), config.PLANET.SIZE * 2, config.PLANET.SIZE * 2);
+    this.load.image("satellite", require("../assets/satellite.png"), config.SATELLITE.WIDTH, config.SATELLITE.HEIGHT);
+  }
+
+  _preset() {
+    this._preset = {};
+  }
+
+  create() {
+    this._preset();
+
+    this.parent = $(`#${this.registry.parent.config.parent}`);
+
+    this.matter.world.autoUpdate = false;
+    this.graphics = this.add.graphics();
+
+    this.runner = { timestamp: 0 };
+
+    this.restore();
+
+    this.createPlanet();
+    this.createSatellite();
+
+    this.createTitle();
+    this.createCounter();
+    this.createButtons();
+
+    this.build();
+    this.subscribe();
+  }
+
+  store() {
+    if (!config.LOCAL_STORAGE) return;
+
+    window.localStorage.matter = window.localStorage.matter || {};
+    window.localStorage.matter.satellite = JSON.stringify(this.state);
+  }
+
+  restore() {
+    this.state = {
+      satellite: { rotation: config.SATELLITE.POSITION.ROTATION },
+      planet: {
+        orbit:  { radius: config.PLANET.ORBIT.RADIUS }
+      }
+    };
+
+    if (!config.LOCAL_STORAGE) return;
+    if (!window.localStorage.matter) return;
+    if (!window.localStorage.matter.satellite) return;
+
+    this.state = JSON.parse(window.localStorage.matter.satellite);
+  }
+
+  build() {
+    // ...
+  }
+
+  createPlanet() {
+    this.planet = this.matter.add.image(
+      config.PLANET.x,
+      config.PLANET.y,
+      'planet',
+      null,
+      {
+        shape: {
+          type: 'circle',
+          radius: config.PLANET.ORBIT.RADIUS - config.SATELLITE.HEIGHT/2
+        },
+        plugin: {
+          attractors: [
+            (bodyA, bodyB) => ({
+              x: (bodyA.position.x - bodyB.position.x) * 0.000001,
+              y: (bodyA.position.y - bodyB.position.y) * 0.000001
+            })
+          ]
+        }
+      }
+    );
+
+    console.log(this.planet);
+    // this.planet.setCircle(10);
+    // this.planet.body.circleRadius = 100
+    console.log(this.planet.body.shape.radius);
+    // this.planet.body.shape.radius = 100
+    console.log(this.planet.body.shape);
+    // this.planet.setMass(2);
+
+    this.planet.setStatic(true);
+  }
+
+  resetPlanet() {
+
+  }
+
+  createSatellite() {
+    this.satellite = this.matter.add.image(0, 0, 'satellite', null, { mass: 1 });    
+
+    // this.satellite.setFrictionAir(0.5);
+
+    this.buildSatellite();
+  }
+
+  resetSatellite() {
+    
+  }
+
+  buildSatellite() {
+    this.buildSatelliteRotation();
+    this.buildSatellitePosition();
+  }
+
+  updateSatelliteRotation() {
+    this.state.satellite.rotation = Phaser.Math.Angle.Between(this.planet.x, this.planet.y, this.satellite.x, this.satellite.y);
+
+    this.buildSatelliteRotation();
+  }
+
+  buildSatelliteRotation() {
+    const { rotation } = this.state.satellite;
+
+    this.satellite.setRotation(rotation + Math.PI/2);
+  }
+  
+  buildSatellitePosition() {
+    const { rotation } = this.state.satellite;
+    const { radius } = this.state.planet.orbit;
+
+    const x = config.PLANET.x + radius * Math.cos(-rotation);
+    const y = config.PLANET.y - radius * Math.sin(-rotation);
+
+    this.satellite.setPosition(x, y);
+  }
+
+  moveSatellite() {
+    const rotation = this.satellite.rotation + Math.PI;
+      
+    const velocity = {
+      x: config.SATELLITE.POWER * Math.cos(rotation),
+      y: config.SATELLITE.POWER * Math.sin(rotation)
+    };
+    
+    this.satellite.setVelocity(velocity.x, velocity.y);
+  }
+
+  createTitle() {
+    this.title = {
+      view: $('<div>', { class: 'task-title', html: 'Переведи спутник на большую пунктирную<br>орбиту. Для этого включай двигатель<br>столько раз, сколько потребуется.' })
+    };
+
+    this.parent.append(this.title.view);
+  }
+
+  createCounter() {
+    this.counter = {
+      view: $('<div>', { class: 'counter' })
+    };
+
+    this.parent.append(this.counter.view);
+  }
+
+  createButtons() {
+    this.buttons = {
+      view: $('<div>', { class: 'buttons' }),
+      reset: {
+        view: $('<div>', { class: 'button reset' })
+      },
+      run: {
+        view: $('<div>', { class: 'button run' })
+      }
+    };
+
+    this.buttons.view.append(
+      this.buttons.reset.view,
+      this.buttons.run.view
+    );
+
+    this.parent.append(this.buttons.view);
+  }
+
+  disableButtons() {
+    this.buttons.view.addClass('disabled');
+  }
+
+  enableButtons() {
+    this.buttons.view.removeClass('disabled');
+  }
+
+  reset(props = {}) {
+    props = {
+      satellite: true,
+      counter: true,
+      ...props
+    };
+
+    this.running = false;
+
+    props.satellite && this.resetSatellite();
+    props.counter && this.resetCounter();
+    
+    // this.input.enabled = true;
+  }
+
+  run() {
+    this.running = true;
+    this.runner.timestamp = 0;
+
+    const target = { x: 256, y: 256 - 56};
+    // console.log(target.x, target.y);
+    // console.log(this.satellite.x, this.satellite.y);
+    
+    const rotation = Math.atan2(
+      target.y - this.satellite.y,
+      target.x - this.satellite.x
+    );
+
+    this.runner.satellite = { target, rotation };
+  }
+
+  stop() {
+    this.running = false;
+    // ...
+  }
+
+  subscribeButtons() {
+    // RESET SLOPE AND BALL
+    this.buttons.reset.view.on('click', (e) => {
+      // console.log('RESETED');
+
+      this.reset();
+    });
+
+    // RUN BALL
+    this.buttons.run.view.on('click', (e) => {
+      // console.log('STARTED');
+
+      this.run();
+    });
+  }
+
+  subscribeSatellite() {
+    // ...
+  }
+
+  subscribe() {
+    this.subscribeSatellite();
+    this.subscribeButtons();
+  }
+
+  draw() {
+    this.graphics.clear();
+    // ...
+  }
+
+  update(time, delta) {
+    this.draw();
+
+    // START
+
+    if (this.running) {
+      this.runner.timestamp += delta;
+
+      const rotation = this.satellite.rotation + this.runner.satellite.rotation;
+      
+      const velocity = {
+        x: config.SATELLITE.POWER * Math.cos(rotation),
+        y: config.SATELLITE.POWER * Math.sin(rotation)
+      };
+      
+      this.satellite.setVelocity(velocity.x, velocity.y);
+      // this.satellite.setVelocity(-3.4, -1);
+
+      // this.updateSatelliteRotation();
+
+      if (this.runner.timestamp >= 5000) {
+        this.stop();
+      }
+    }
+    else {
+      // this.moveSatellite();
+    }
+
+    this.updateSatelliteRotation();
+
+    // END
+
+    this.matter.world.step(delta);
+  }
+
+  disable() {
+    this.parent.addClass('disabled');
+  }
+
+  enable() {
+    this.parent.removeClass('disabled');
+  }
+}
+
+export default Play;
