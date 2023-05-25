@@ -13,7 +13,17 @@ const config = {
     WIDTH: 52,
     HEIGHT: 49,
     POSITION: { ROTATION: -Math.PI/2 },
-    POWER: 2
+    POWER: {
+      DEFAULT: 0.1,
+      ACCELERATION: 1,
+    },
+    ACCELERATION: {
+      DURATION: 10000
+    },
+    DIRECTION: {
+      // x: 0, y: 256 - 56
+      x: 0, y: 100
+    }
   },
   PHYSICS: {
     

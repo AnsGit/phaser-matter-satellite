@@ -106,9 +106,9 @@ class Play extends Phaser.Scene {
   createSatellite() {
     this.satellite = this.matter.add.image(0, 0, 'satellite', null, { mass: 1 });    
 
-    // this.satellite.setFrictionAir(0.5);
-
     this.buildSatellite();
+
+    // this.satellite.setFrictionAir(0.5);
   }
 
   resetSatellite() {
@@ -116,20 +116,9 @@ class Play extends Phaser.Scene {
   }
 
   buildSatellite() {
-    this.buildSatelliteRotation();
     this.buildSatellitePosition();
-  }
-
-  updateSatelliteRotation() {
-    this.state.satellite.rotation = Phaser.Math.Angle.Between(this.planet.x, this.planet.y, this.satellite.x, this.satellite.y);
-
+    this.buildSatelliteAcceleration();
     this.buildSatelliteRotation();
-  }
-
-  buildSatelliteRotation() {
-    const { rotation } = this.state.satellite;
-
-    this.satellite.setRotation(rotation + Math.PI/2);
   }
   
   buildSatellitePosition() {
@@ -142,12 +131,35 @@ class Play extends Phaser.Scene {
     this.satellite.setPosition(x, y);
   }
 
+  buildSatelliteAcceleration() {
+    const direction = config.SATELLITE.DIRECTION;
+    const rotation = Math.atan2( direction.y - this.satellite.y, direction.x - this.satellite.x );
+
+    this.satellite.acceleration = { direction, rotation };
+  }
+
+  updateSatelliteRotation(running = false) {
+    this.state.satellite.rotation = Phaser.Math.Angle.Between(this.planet.x, this.planet.y, this.satellite.x, this.satellite.y);
+
+    if (running) {
+      this.state.satellite.rotation += this.satellite.acceleration.rotation + Math.PI;
+    }
+
+    this.buildSatelliteRotation();
+  }
+
+  buildSatelliteRotation() {
+    const { rotation } = this.state.satellite;
+    this.satellite.setRotation(rotation + Math.PI/2);
+    // this.satellite.setRotation(this.satellite.acceleration.rotation + rotation + Math.PI/2);
+  }
+
   moveSatellite() {
     const rotation = this.satellite.rotation + Math.PI;
       
     const velocity = {
-      x: config.SATELLITE.POWER * Math.cos(rotation),
-      y: config.SATELLITE.POWER * Math.sin(rotation)
+      x: config.SATELLITE.POWER.DEFAULT * Math.cos(rotation),
+      y: config.SATELLITE.POWER.DEFAULT * Math.sin(rotation)
     };
     
     this.satellite.setVelocity(velocity.x, velocity.y);
@@ -214,17 +226,6 @@ class Play extends Phaser.Scene {
   run() {
     this.running = true;
     this.runner.timestamp = 0;
-
-    const target = { x: 256, y: 256 - 56};
-    // console.log(target.x, target.y);
-    // console.log(this.satellite.x, this.satellite.y);
-    
-    const rotation = Math.atan2(
-      target.y - this.satellite.y,
-      target.x - this.satellite.x
-    );
-
-    this.runner.satellite = { target, rotation };
   }
 
   stop() {
@@ -269,12 +270,13 @@ class Play extends Phaser.Scene {
 
     if (this.running) {
       this.runner.timestamp += delta;
-
-      const rotation = this.satellite.rotation + this.runner.satellite.rotation;
       
+      // const rotation = this.satellite.rotation + this.satellite.acceleration.rotation;
+      const rotation = this.satellite.rotation - Math.PI;
+
       const velocity = {
-        x: config.SATELLITE.POWER * Math.cos(rotation),
-        y: config.SATELLITE.POWER * Math.sin(rotation)
+        x: config.SATELLITE.POWER.ACCELERATION * Math.cos(rotation),
+        y: config.SATELLITE.POWER.ACCELERATION * Math.sin(rotation)
       };
       
       this.satellite.setVelocity(velocity.x, velocity.y);
@@ -282,15 +284,15 @@ class Play extends Phaser.Scene {
 
       // this.updateSatelliteRotation();
 
-      if (this.runner.timestamp >= 5000) {
+      if (this.runner.timestamp >= config.SATELLITE.ACCELERATION.DURATION) {
         this.stop();
       }
     }
     else {
-      // this.moveSatellite();
+      this.moveSatellite();
     }
 
-    this.updateSatelliteRotation();
+    this.updateSatelliteRotation(this.running);
 
     // END
 
