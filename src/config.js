@@ -7,7 +7,11 @@ const config = {
     SIZE: 32,
     x: 512,
     y: 256,
-    ORBIT: { RADIUS: 56 }
+    ORBIT: {
+      DEFAULT: { RADIUS: 56 },
+      TARGET: { RADIUS: 216, SEGMENTS: 44 },
+      COLOR: '0x82D2FF'
+    }
   },
   SATELLITE: {
     WIDTH: 52,
@@ -15,14 +19,20 @@ const config = {
     POSITION: { ROTATION: -Math.PI/2 },
     POWER: {
       DEFAULT: 0.1,
-      ACCELERATION: 1,
+      ACCELERATION: 1.2
     },
     ACCELERATION: {
-      DURATION: 10000
+      DURATION: 10000,
+      START: {
+        DURATION: 500
+      },
+      END: {
+        DURATION: 500
+      }
     },
     DIRECTION: {
       // x: 0, y: 256 - 56
-      x: 0, y: 100
+      x: 250, y: 90
     }
   },
   PHYSICS: {

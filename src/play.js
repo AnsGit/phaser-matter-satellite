@@ -51,7 +51,7 @@ class Play extends Phaser.Scene {
     this.state = {
       satellite: { rotation: config.SATELLITE.POSITION.ROTATION },
       planet: {
-        orbit:  { radius: config.PLANET.ORBIT.RADIUS }
+        orbit:  { radius: config.PLANET.ORBIT.DEFAULT.RADIUS }
       }
     };
 
@@ -75,7 +75,7 @@ class Play extends Phaser.Scene {
       {
         shape: {
           type: 'circle',
-          radius: config.PLANET.ORBIT.RADIUS - config.SATELLITE.HEIGHT/2
+          radius: config.PLANET.ORBIT.DEFAULT.RADIUS - config.SATELLITE.HEIGHT/2
         },
         plugin: {
           attractors: [
@@ -88,13 +88,18 @@ class Play extends Phaser.Scene {
       }
     );
 
-    console.log(this.planet);
-    // this.planet.setCircle(10);
+    this.orbits = ['DEFAULT', 'TARGET'].map((type) => {
+      const { RADIUS } = config.PLANET.ORBIT[type];
+      return new Phaser.Geom.Circle(config.PLANET.x, config.PLANET.y, RADIUS);
+    });
+
+    // console.log(this.planet);
     // this.planet.body.circleRadius = 100
-    console.log(this.planet.body.shape.radius);
+    // console.log(this.planet.body.shape.radius);
     // this.planet.body.shape.radius = 100
-    console.log(this.planet.body.shape);
+    // console.log(this.planet.body.shape);
     // this.planet.setMass(2);
+    // this.planet.setCircle(config.PLANET.ORBIT.RADIUS - config.SATELLITE.HEIGHT/2);
 
     this.planet.setStatic(true);
   }
@@ -138,11 +143,35 @@ class Play extends Phaser.Scene {
     this.satellite.acceleration = { direction, rotation };
   }
 
-  updateSatelliteRotation(running = false) {
+  updateSatelliteRotation(running = false, delta = 0) {
+    // Base rotation of the satellite
     this.state.satellite.rotation = Phaser.Math.Angle.Between(this.planet.x, this.planet.y, this.satellite.x, this.satellite.y);
 
+    // Target change in the rotation of the satellite during acceleration
+    let rDelta = this.satellite.acceleration.rotation + Math.PI;
+
     if (running) {
-      this.state.satellite.rotation += this.satellite.acceleration.rotation + Math.PI;
+      const { ACCELERATION } = config.SATELLITE;
+
+      const isStarting = this.runner.timestamp < ACCELERATION.START.DURATION;
+      let multiplier;
+      
+      if (isStarting) {
+        // Set smooth changing of the satellite rotation on start of acceleration
+        multiplier = this.runner.timestamp / ACCELERATION.START.DURATION;
+        rDelta *= multiplier;
+      }
+      else {
+        const isEnding = this.runner.timestamp > (ACCELERATION.DURATION - ACCELERATION.END.DURATION);
+        
+        if (isEnding) {
+          // Set smooth changing of the satellite rotation on end of acceleration
+          multiplier = (ACCELERATION.DURATION - this.runner.timestamp) / ACCELERATION.END.DURATION;
+          rDelta *= multiplier;
+        }
+      }
+      
+      this.state.satellite.rotation += rDelta;
     }
 
     this.buildSatelliteRotation();
@@ -151,7 +180,6 @@ class Play extends Phaser.Scene {
   buildSatelliteRotation() {
     const { rotation } = this.state.satellite;
     this.satellite.setRotation(rotation + Math.PI/2);
-    // this.satellite.setRotation(this.satellite.acceleration.rotation + rotation + Math.PI/2);
   }
 
   moveSatellite() {
@@ -230,7 +258,10 @@ class Play extends Phaser.Scene {
 
   stop() {
     this.running = false;
-    // ...
+
+    const radius = Phaser.Math.Distance.Between(this.satellite.x, this.satellite.y, this.planet.x, this.planet.y);
+
+    this.planet.setCircle(radius - config.SATELLITE.HEIGHT/2);
   }
 
   subscribeButtons() {
@@ -260,7 +291,36 @@ class Play extends Phaser.Scene {
 
   draw() {
     this.graphics.clear();
-    // ...
+    
+    this.drawOrbits();
+  }
+
+  drawOrbit(o, dashed = false) {
+    if (!dashed) {
+      this.graphics.beginPath();
+      this.graphics.arc(o.x, o.y, o.radius, 0, 2 * Math.PI);
+      this.graphics.closePath();
+      this.graphics.stroke();
+    }
+    else {
+      const maxAngle = Math.PI * 2;
+      const aDelta = maxAngle / (config.PLANET.ORBIT.TARGET.SEGMENTS * 2);
+
+      let angle = 0;
+
+      while (angle < maxAngle) {
+        this.graphics.beginPath();
+        this.graphics.arc(o.x, o.y, o.radius, angle, angle + aDelta);
+        this.graphics.stroke();
+
+        angle += aDelta * 2;
+      }
+    }
+  }
+
+  drawOrbits() {
+    this.graphics.lineStyle(1, config.PLANET.ORBIT.COLOR, 0.5);
+    this.orbits.forEach( (o, i) => this.drawOrbit(o, i === 1) );
   }
 
   update(time, delta) {
@@ -292,7 +352,7 @@ class Play extends Phaser.Scene {
       this.moveSatellite();
     }
 
-    this.updateSatelliteRotation(this.running);
+    this.updateSatelliteRotation(this.running, delta);
 
     // END
 
