@@ -51,26 +51,31 @@ b {
   justify-content: center;
   width: 48px;
   height: 48px;
-  background-color: #FFFFFF;
+  background-color: #765fde;
+  background-position: center;
+  background-repeat: no-repeat;
   border-radius: 16px;
   box-sizing: border-box;
 }
 
 .button:not(.disabled):hover {
+  background-color: #8168f0;
   cursor: pointer;
 }
 
+.button.disabled {
+  background-color: #BDBDBD;
+}
+
 .button.reset {
-  width: 48px;
   margin-right: 16px;
   background-image: url('../assets/icon-reset.svg');
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: contain;
 }
 
 .button.run {
+  background-image: url('../assets/icon-run.svg');
 }
+
 
 .hidden {
   opacity: 0;

@@ -93,31 +93,27 @@ class Play extends Phaser.Scene {
       return new Phaser.Geom.Circle(config.PLANET.x, config.PLANET.y, RADIUS);
     });
 
-    // console.log(this.planet);
-    // this.planet.body.circleRadius = 100
-    // console.log(this.planet.body.shape.radius);
-    // this.planet.body.shape.radius = 100
-    // console.log(this.planet.body.shape);
-    // this.planet.setMass(2);
-    // this.planet.setCircle(config.PLANET.ORBIT.RADIUS - config.SATELLITE.HEIGHT/2);
-
-    this.planet.setStatic(true);
+    this.buildPlanet();
   }
 
   resetPlanet() {
+    this.state.planet.orbit.radius = config.PLANET.ORBIT.DEFAULT.RADIUS;
+    this.buildPlanet();
+  }
 
+  buildPlanet() {
+    this.planet.setCircle(this.state.planet.orbit.radius - config.SATELLITE.HEIGHT/2);
+    this.planet.setStatic(true);
   }
 
   createSatellite() {
     this.satellite = this.matter.add.image(0, 0, 'satellite', null, { mass: 1 });    
-
     this.buildSatellite();
-
-    // this.satellite.setFrictionAir(0.5);
   }
 
   resetSatellite() {
-    
+    this.state.satellite.rotation = config.SATELLITE.POSITION.ROTATION;
+    this.buildSatellite();
   }
 
   buildSatellite() {
@@ -209,11 +205,15 @@ class Play extends Phaser.Scene {
     this.parent.append(this.counter.view);
   }
 
+  resetCounter() {
+
+  }
+
   createButtons() {
     this.buttons = {
       view: $('<div>', { class: 'buttons' }),
       reset: {
-        view: $('<div>', { class: 'button reset' })
+        view: $('<div>', { class: 'button reset disabled' })
       },
       run: {
         view: $('<div>', { class: 'button run' })
@@ -237,31 +237,29 @@ class Play extends Phaser.Scene {
   }
 
   reset(props = {}) {
-    props = {
-      satellite: true,
-      counter: true,
-      ...props
-    };
-
     this.running = false;
 
-    props.satellite && this.resetSatellite();
-    props.counter && this.resetCounter();
+    this.resetPlanet();
+    this.resetSatellite();
+    this.resetCounter();
     
-    // this.input.enabled = true;
+    this.buttons.run.view.removeClass('disabled');
+    this.buttons.reset.view.addClass('disabled');
   }
 
   run() {
     this.running = true;
     this.runner.timestamp = 0;
+
+    this.buttons.run.view.addClass('disabled');
+    this.buttons.reset.view.removeClass('disabled');
   }
 
   stop() {
     this.running = false;
 
-    const radius = Phaser.Math.Distance.Between(this.satellite.x, this.satellite.y, this.planet.x, this.planet.y);
-
-    this.planet.setCircle(radius - config.SATELLITE.HEIGHT/2);
+    this.state.planet.orbit.radius = Phaser.Math.Distance.Between(this.satellite.x, this.satellite.y, this.planet.x, this.planet.y);
+    this.buildPlanet();
   }
 
   subscribeButtons() {
