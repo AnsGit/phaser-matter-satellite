@@ -38,6 +38,115 @@ b {
   border-radius: 16px;
 }
 
+.counter > .status {
+  position: absolute;
+  left: 62px;
+  top: 0;
+  height: 100%;
+  width: 22px;
+  background-color: #DBD5F6;
+}
+
+.counter > .status > .inner {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 0;
+  background-color: #03C3EF;
+}
+
+.counter > .status > .inner > .value {
+  position: absolute;
+  /* top: 0;
+  left: -2px;
+  transform: translate(-100%, -50%); */
+  top: 5px;
+  left: -8px;
+  transform: translate(-100%, -100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  line-height: 28px;
+  color: #765FDE;
+}
+
+/* .counter > .status > .inner > .value:after {
+  content: '';
+  display: inline-flex;
+  width: 6px;
+  height: 12px;
+  background: url('../assets/counter-status-pointer-icon.svg') center no-repeat;
+  margin-left: 7px;
+} */
+
+.counter > .switchers {
+  position: absolute;
+  height: 100%;
+  left: 120px;
+  top: 0;
+  display: flex;
+  justify-content: space-between;
+}
+
+.counter > .switchers:after {
+  content: '.';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translateX(-50%);
+  height: 100%;
+  display: flex;
+  align-items: center;
+  font-size: 48px;
+  line-height: 58px;
+  font-weight: 700;
+  color: #2F2F45;
+}
+
+.counter > .switchers > .switcher {
+  width: 40px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.counter > .switchers > .switcher:not(:last-of-type) {
+  margin-right: 8px;
+}
+
+.counter > .switchers > .switcher > .value {
+  font-size: 48px;
+  line-height: 58px;
+  font-weight: 700;
+  color: #2F2F45;
+}
+
+.counter > .switchers > .switcher > .button {
+  width: 100%;
+  height: 40px;
+  background: url('../assets/counter-switcher-button-icon.svg') center no-repeat;
+  background-color: #FFFFFF;
+  border-bottom-left-radius: 20px;
+  border-bottom-right-radius: 20px;
+}
+
+.counter > .switchers > .switcher > .button.up {
+  
+}
+
+.counter > .switchers > .switcher > .button.down {
+  transform: rotate(180deg);
+}
+
+.counter > .switchers > .switcher > .button:not(.disabled):hover {
+  background-color: #ddd8f6;
+  cursor: pointer;
+}
+
 .buttons {
   position: absolute;
   display: flex;
@@ -45,32 +154,37 @@ b {
   bottom: 24px;
 }
 
-.button {
+.buttons > .button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 48px;
   height: 48px;
-  background-color: #FFFFFF;
+  background-color: #765fde;
+  background-position: center;
+  background-repeat: no-repeat;
   border-radius: 16px;
   box-sizing: border-box;
 }
 
-.button:not(.disabled):hover {
+.buttons > .button:not(.disabled):hover {
+  background-color: #8168f0;
   cursor: pointer;
 }
 
-.button.reset {
-  width: 48px;
-  margin-right: 16px;
-  background-image: url('../assets/icon-reset.svg');
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: contain;
+.buttons > .button.disabled {
+  background-color: #BDBDBD;
 }
 
-.button.run {
+.buttons > .button.reset {
+  margin-right: 16px;
+  background-image: url('../assets/reset-icon.svg');
 }
+
+.buttons > .button.run {
+  background-image: url('../assets/run-icon.svg');
+}
+
 
 .hidden {
   opacity: 0;

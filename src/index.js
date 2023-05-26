@@ -20,7 +20,8 @@ const props = {
       },
       plugins: {
         attractors: true
-      }
+      },
+      // debug: true,
     }
   },
   scene: [Play]
