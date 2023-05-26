@@ -199,14 +199,69 @@ class Play extends Phaser.Scene {
 
   createCounter() {
     this.counter = {
-      view: $('<div>', { class: 'counter' })
+      view: $('<div>', { class: 'counter' }),
+      status: {
+        view: $('<div>', { class: 'status' }),
+        inner: {
+          view: $('<div>', { class: 'inner' }),
+          value: $('<div>', { class: 'value' })
+        }
+      },
+      switchers: {
+        view: $('<div>', { class: 'switchers' }),
+        list: _.range(2).map((i) => {
+          const switcher = {
+            view: $('<div>', { class: 'switcher' }),
+            value: $('<div>', { class: 'value' }),
+            buttons: ['up', 'down'].map((type) => {
+              return $('<div>', { class: `button ${type}` });
+            })
+          }
+
+          switcher.view.append(
+            switcher.buttons[0],
+            switcher.value,
+            switcher.buttons[1]
+          );
+
+          return switcher;
+        })
+      }
     };
 
+    this.counter.view.append(
+      this.counter.status.view.append(
+        this.counter.status.inner.view.append(
+          this.counter.status.inner.value
+        )
+      ),
+      this.counter.switchers.view.append(
+        ...this.counter.switchers.list.map( s => s.view )
+      )
+    );
+
     this.parent.append(this.counter.view);
+
+    this.counter.status.height = this.counter.status.view.height() / 2;
+
+    this.buildCounter();
   }
 
   resetCounter() {
+    this.buildCounter();
+  }
 
+  buildCounter() {
+    const duration = config.SATELLITE.ACCELERATION.DURATION / 1000;
+
+    this.counter.status.inner.view.css({ height: this.counter.status.height });
+    this.counter.status.inner.value.text(duration);
+
+    const dParts = duration.toString().split('.');
+
+    this.counter.switchers.list.forEach((s, i) => {
+      s.value.text(dParts[i] || 0);
+    });
   }
 
   createButtons() {

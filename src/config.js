@@ -22,7 +22,7 @@ const config = {
       ACCELERATION: 1.2
     },
     ACCELERATION: {
-      DURATION: 10000,
+      DURATION: 9000,
       START: {
         DURATION: 500
       },
