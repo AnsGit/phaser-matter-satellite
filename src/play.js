@@ -43,8 +43,7 @@ class Play extends Phaser.Scene {
   store() {
     if (!config.LOCAL_STORAGE) return;
 
-    window.localStorage.matter = window.localStorage.matter || {};
-    window.localStorage.matter.satellite = JSON.stringify(this.state);
+    window.localStorage['matter-satellite'] = JSON.stringify(this.state);
   }
 
   restore() {
@@ -52,14 +51,16 @@ class Play extends Phaser.Scene {
       satellite: { rotation: config.SATELLITE.POSITION.ROTATION },
       planet: {
         orbit:  { radius: config.PLANET.ORBIT.DEFAULT.RADIUS }
+      },
+      counter: {
+        switchers: [ { value: 0 }, { value: 0 } ]
       }
     };
 
     if (!config.LOCAL_STORAGE) return;
-    if (!window.localStorage.matter) return;
-    if (!window.localStorage.matter.satellite) return;
+    if (!window.localStorage['matter-satellite']) return;
 
-    this.state = JSON.parse(window.localStorage.matter.satellite);
+    this.state = JSON.parse(window.localStorage['matter-satellite']);
   }
 
   build() {
@@ -214,7 +215,11 @@ class Play extends Phaser.Scene {
             view: $('<div>', { class: 'switcher' }),
             value: $('<div>', { class: 'value' }),
             buttons: ['up', 'down'].map((type) => {
-              return $('<div>', { class: `button ${type}` });
+              const b = $('<div>', { class: `button ${type}` });
+
+              b.data({ switcher: { index: i }, type });
+
+              return b;
             })
           }
 
@@ -248,6 +253,7 @@ class Play extends Phaser.Scene {
   }
 
   resetCounter() {
+    this.state.counter.switchers.list.forEach( state => state.value = 0 );
     this.buildCounter();
   }
 
@@ -257,11 +263,59 @@ class Play extends Phaser.Scene {
     this.counter.status.inner.view.css({ height: this.counter.status.height });
     this.counter.status.inner.value.text(duration);
 
-    const dParts = duration.toString().split('.');
-
     this.counter.switchers.list.forEach((s, i) => {
-      s.value.text(dParts[i] || 0);
+      s.value.text(this.state.counter.switchers[i].value);
     });
+  }
+
+  toggleCounter(b) {
+    const sIndex = b.data().switcher.index;
+    const { type } = b.data();
+
+    const values = this.state.counter.switchers.map( state => state.value );
+
+    if (type === 'up') {
+      values[sIndex]++;
+
+      if (sIndex === 1) {
+        if (values[sIndex] === 10) {
+          values[0]++;
+          values[sIndex] = 0
+        }
+      }
+    }
+    else {
+      values[sIndex]--;
+
+      if (sIndex === 1) {
+        if (values[sIndex] === -1) {
+          values[0]--;
+          values[sIndex] = 9;
+        }
+      }
+    }
+
+    const resValue = parseFloat(values.join('.'));
+
+    const isCorrectResult = (
+      resValue >= 0 &&
+      resValue <= (config.SATELLITE.ACCELERATION.DURATION / 1000)
+    );
+
+    if (isCorrectResult) {
+      values.forEach((value, i) => {
+        this.counter.switchers.list[i].value.text(value);
+        this.state.counter.switchers[i].value = value;
+      });
+    };
+  }
+
+  disableCounter() {
+    this.counter.view.addClass('disabled');
+  }
+
+  enableCounter() {
+    this.counter.view.removeClass('disabled');
   }
 
   createButtons() {
@@ -317,12 +371,17 @@ class Play extends Phaser.Scene {
     this.buildPlanet();
   }
 
+  subscribeSatellite() {
+    // ...
+  }
+
   subscribeButtons() {
     // RESET SLOPE AND BALL
     this.buttons.reset.view.on('click', (e) => {
       // console.log('RESETED');
 
       this.reset();
+      this.store();
     });
 
     // RUN BALL
@@ -330,16 +389,25 @@ class Play extends Phaser.Scene {
       // console.log('STARTED');
 
       this.run();
+      this.store();
     });
   }
 
-  subscribeSatellite() {
-    // ...
+  subscribeCounter() {
+    this.counter.switchers.list.forEach((s) => {
+      s.buttons.forEach((b) => {
+        b.on('click', (e) => {
+          this.toggleCounter(b);
+          this.store();
+        });
+      })
+    })
   }
 
   subscribe() {
     this.subscribeSatellite();
     this.subscribeButtons();
+    this.subscribeCounter();
   }
 
   draw() {
