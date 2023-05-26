@@ -102,7 +102,8 @@ class Play extends Phaser.Scene {
       return new Phaser.Geom.Circle(config.PLANET.x, config.PLANET.y, RADIUS);
     });
 
-    this.buildPlanet();
+    // this.buildPlanet();
+    this.resetPlanet();
   }
 
   resetPlanet() {
@@ -117,7 +118,8 @@ class Play extends Phaser.Scene {
 
   createSatellite() {
     this.satellite = this.matter.add.image(0, 0, 'satellite', null, { mass: 1 });    
-    this.buildSatellite();
+    // this.buildSatellite();
+    this.resetSatellite();
   }
 
   resetSatellite() {
@@ -188,6 +190,18 @@ class Play extends Phaser.Scene {
     this.satellite.setRotation(rotation + Math.PI/2);
   }
 
+  updateSatellite(time, delta) {
+    // const rotation = this.satellite.rotation + this.satellite.acceleration.rotation;
+    const rotation = this.satellite.rotation - Math.PI;
+
+    const velocity = {
+      x: config.SATELLITE.POWER.ACCELERATION * Math.cos(rotation),
+      y: config.SATELLITE.POWER.ACCELERATION * Math.sin(rotation)
+    };
+    
+    this.satellite.setVelocity(velocity.x, velocity.y);
+  }
+
   moveSatellite() {
     const rotation = this.satellite.rotation + Math.PI;
       
@@ -197,31 +211,6 @@ class Play extends Phaser.Scene {
     };
     
     this.satellite.setVelocity(velocity.x, velocity.y);
-  }
-
-  updateSatellite(time, delta) {
-    if (this.running) {
-      this.runner.timestamp += delta;
-      
-      // const rotation = this.satellite.rotation + this.satellite.acceleration.rotation;
-      const rotation = this.satellite.rotation - Math.PI;
-
-      const velocity = {
-        x: config.SATELLITE.POWER.ACCELERATION * Math.cos(rotation),
-        y: config.SATELLITE.POWER.ACCELERATION * Math.sin(rotation)
-      };
-      
-      this.satellite.setVelocity(velocity.x, velocity.y);
-
-      if (this.runner.timestamp >= this.state.counter.switchers.value) {
-        this.stop();
-      }
-    }
-    else {
-      this.moveSatellite();
-    }
-
-    this.updateSatelliteRotation(this.running, delta);
   }
 
   createTitle() {
@@ -368,6 +357,31 @@ class Play extends Phaser.Scene {
     };
   }
 
+  updateCounter(time, delta) {
+    // Actual remaining duration on counter switchers
+    let remainingDuration = (this.state.counter.switchers.value - this.runner.timestamp);
+    (remainingDuration < 0) && (remainingDuration = 0);
+
+    const values = (remainingDuration / 1000).toFixed(1).split('.');
+
+    values.forEach((value, i) => {
+      this.counter.switchers.list[i].value.text(value);
+    });
+
+    const maxDuration = config.SATELLITE.ACCELERATION.DURATION;
+    
+    // Actual height of counter status inner part
+    this.counter.status.inner.view.height(
+      this.counter.status.height * (1 - this.runner.timestamp/maxDuration)
+    );
+      
+    // Actual duration on counter status
+    let statusDuration = (maxDuration - this.runner.timestamp) / 1000;
+    (statusDuration < 0) && (statusDuration = 0);
+
+    this.counter.status.inner.value.text( statusDuration.toFixed(1) );
+  }
+
   disableCounter() {
     this.counter.view.addClass('disabled');
   }
@@ -403,6 +417,24 @@ class Play extends Phaser.Scene {
     this.buttons.view.removeClass('disabled');
   }
 
+  updateObjects(time, delta) {
+    if (this.running) {
+      this.runner.timestamp += delta;
+
+      this.updateCounter(time, delta);
+      this.updateSatellite(time, delta);
+      
+      if (this.runner.timestamp >= this.state.counter.switchers.value) {
+        this.stop();
+      }
+    }
+    else {
+      this.moveSatellite();
+    }
+
+    this.updateSatelliteRotation(this.running, delta);
+  }
+
   reset(props = {}) {
     this.running = false;
 
@@ -412,6 +444,8 @@ class Play extends Phaser.Scene {
     
     this.buttons.run.view.removeClass('disabled');
     this.buttons.reset.view.addClass('disabled');
+
+    this.enableCounter();
   }
 
   run() {
@@ -431,6 +465,8 @@ class Play extends Phaser.Scene {
 
     this.buttons.run.view.addClass('disabled');
     this.buttons.reset.view.removeClass('disabled');
+
+    this.disableCounter();
   }
 
   stop() {
@@ -516,7 +552,7 @@ class Play extends Phaser.Scene {
   update(time, delta) {
     this.draw();
 
-    this.updateSatellite(time, delta);
+    this.updateObjects(time, delta);
 
     this.matter.world.step(delta);
   }
