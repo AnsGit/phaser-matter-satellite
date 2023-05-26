@@ -47,13 +47,21 @@ class Play extends Phaser.Scene {
   }
 
   restore() {
+    // delete window.localStorage['matter-satellite'];
+
     this.state = {
-      satellite: { rotation: config.SATELLITE.POSITION.ROTATION },
+      satellite: {
+        rotation: config.SATELLITE.POSITION.ROTATION,
+        durations: { start: 0, end: 0 }
+      },
       planet: {
         orbit:  { radius: config.PLANET.ORBIT.DEFAULT.RADIUS }
       },
       counter: {
-        switchers: [ { value: 0 }, { value: 0 } ]
+        switchers: {
+          value: 0,
+          list: [ { value: 0 }, { value: 0 } ]
+        }
       }
     };
 
@@ -149,21 +157,22 @@ class Play extends Phaser.Scene {
 
     if (running) {
       const { ACCELERATION } = config.SATELLITE;
+      const duration = this.state.counter.switchers.value;
 
-      const isStarting = this.runner.timestamp < ACCELERATION.START.DURATION;
+      const isStarting = this.runner.timestamp < this.state.satellite.durations.start;
       let multiplier;
       
       if (isStarting) {
         // Set smooth changing of the satellite rotation on start of acceleration
-        multiplier = this.runner.timestamp / ACCELERATION.START.DURATION;
+        multiplier = this.runner.timestamp / this.state.satellite.durations.start;
         rDelta *= multiplier;
       }
       else {
-        const isEnding = this.runner.timestamp > (ACCELERATION.DURATION - ACCELERATION.END.DURATION);
+        const isEnding = this.runner.timestamp > (duration - this.state.satellite.durations.end);
         
         if (isEnding) {
           // Set smooth changing of the satellite rotation on end of acceleration
-          multiplier = (ACCELERATION.DURATION - this.runner.timestamp) / ACCELERATION.END.DURATION;
+          multiplier = (duration - this.runner.timestamp) / this.state.satellite.durations.end;
           rDelta *= multiplier;
         }
       }
@@ -188,6 +197,31 @@ class Play extends Phaser.Scene {
     };
     
     this.satellite.setVelocity(velocity.x, velocity.y);
+  }
+
+  updateSatellite(time, delta) {
+    if (this.running) {
+      this.runner.timestamp += delta;
+      
+      // const rotation = this.satellite.rotation + this.satellite.acceleration.rotation;
+      const rotation = this.satellite.rotation - Math.PI;
+
+      const velocity = {
+        x: config.SATELLITE.POWER.ACCELERATION * Math.cos(rotation),
+        y: config.SATELLITE.POWER.ACCELERATION * Math.sin(rotation)
+      };
+      
+      this.satellite.setVelocity(velocity.x, velocity.y);
+
+      if (this.runner.timestamp >= this.state.counter.switchers.value) {
+        this.stop();
+      }
+    }
+    else {
+      this.moveSatellite();
+    }
+
+    this.updateSatelliteRotation(this.running, delta);
   }
 
   createTitle() {
@@ -254,6 +288,7 @@ class Play extends Phaser.Scene {
 
   resetCounter() {
     this.state.counter.switchers.list.forEach( state => state.value = 0 );
+    this.state.counter.switchers.value = 0;
     this.buildCounter();
   }
 
@@ -264,7 +299,7 @@ class Play extends Phaser.Scene {
     this.counter.status.inner.value.text(duration);
 
     this.counter.switchers.list.forEach((s, i) => {
-      s.value.text(this.state.counter.switchers[i].value);
+      s.value.text(this.state.counter.switchers.list[i].value);
     });
   }
 
@@ -272,7 +307,7 @@ class Play extends Phaser.Scene {
     const sIndex = b.data().switcher.index;
     const { type } = b.data();
 
-    const values = this.state.counter.switchers.map( state => state.value );
+    const values = this.state.counter.switchers.list.map( state => state.value );
 
     const maxDuration = config.SATELLITE.ACCELERATION.DURATION / 1000;
 
@@ -280,6 +315,7 @@ class Play extends Phaser.Scene {
       values[sIndex]++;
 
       if (sIndex === 0) {
+        // Left switcher
         const tempResValue = parseFloat(values.join('.'));
 
         if (tempResValue > maxDuration) {
@@ -291,6 +327,7 @@ class Play extends Phaser.Scene {
         }
       }
       else {
+        // Right switcher
         if (values[sIndex] === 10) {
           values[0]++;
           values[sIndex] = 0
@@ -301,6 +338,7 @@ class Play extends Phaser.Scene {
       values[sIndex]--;
 
       if (sIndex === 0) {
+        // Left switcher
         const tempResValue = parseFloat(values.join('.'));
 
         if (tempResValue < 0) {
@@ -309,6 +347,7 @@ class Play extends Phaser.Scene {
         }
       }
       else {
+        // Right switcher
         if (values[sIndex] === -1) {
           values[0]--;
           values[sIndex] = 9;
@@ -322,8 +361,10 @@ class Play extends Phaser.Scene {
     if (isCorrectResult) {
       values.forEach((value, i) => {
         this.counter.switchers.list[i].value.text(value);
-        this.state.counter.switchers[i].value = value;
+        this.state.counter.switchers.list[i].value = value;
       });
+
+      this.state.counter.switchers.value = resValue * 1000;
     };
   }
 
@@ -374,6 +415,17 @@ class Play extends Phaser.Scene {
   }
 
   run() {
+    const duration = this.state.counter.switchers.value;
+
+    if (duration <= 0) return;
+
+    const { ACCELERATION } = config.SATELLITE;
+
+    this.state.satellite.durations = {
+      start: duration * ACCELERATION.START.PART,
+      end: duration * ACCELERATION.END.PART,
+    };
+
     this.running = true;
     this.runner.timestamp = 0;
 
@@ -464,35 +516,7 @@ class Play extends Phaser.Scene {
   update(time, delta) {
     this.draw();
 
-    // START
-
-    if (this.running) {
-      this.runner.timestamp += delta;
-      
-      // const rotation = this.satellite.rotation + this.satellite.acceleration.rotation;
-      const rotation = this.satellite.rotation - Math.PI;
-
-      const velocity = {
-        x: config.SATELLITE.POWER.ACCELERATION * Math.cos(rotation),
-        y: config.SATELLITE.POWER.ACCELERATION * Math.sin(rotation)
-      };
-      
-      this.satellite.setVelocity(velocity.x, velocity.y);
-      // this.satellite.setVelocity(-3.4, -1);
-
-      // this.updateSatelliteRotation();
-
-      if (this.runner.timestamp >= config.SATELLITE.ACCELERATION.DURATION) {
-        this.stop();
-      }
-    }
-    else {
-      this.moveSatellite();
-    }
-
-    this.updateSatelliteRotation(this.running, delta);
-
-    // END
+    this.updateSatellite(time, delta);
 
     this.matter.world.step(delta);
   }
