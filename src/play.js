@@ -274,10 +274,23 @@ class Play extends Phaser.Scene {
 
     const values = this.state.counter.switchers.map( state => state.value );
 
+    const maxDuration = config.SATELLITE.ACCELERATION.DURATION / 1000;
+
     if (type === 'up') {
       values[sIndex]++;
 
-      if (sIndex === 1) {
+      if (sIndex === 0) {
+        const tempResValue = parseFloat(values.join('.'));
+
+        if (tempResValue > maxDuration) {
+          const maxDurationParts = maxDuration.toString().split('.');
+          maxDurationParts[1] = maxDurationParts[1] || 0;
+
+          values[0] = +maxDurationParts[0];
+          values[1] = +maxDurationParts[1];
+        }
+      }
+      else {
         if (values[sIndex] === 10) {
           values[0]++;
           values[sIndex] = 0
@@ -287,7 +300,15 @@ class Play extends Phaser.Scene {
     else {
       values[sIndex]--;
 
-      if (sIndex === 1) {
+      if (sIndex === 0) {
+        const tempResValue = parseFloat(values.join('.'));
+
+        if (tempResValue < 0) {
+          values[0] = 0;
+          // values[1] = 0;
+        }
+      }
+      else {
         if (values[sIndex] === -1) {
           values[0]--;
           values[sIndex] = 9;
@@ -296,11 +317,7 @@ class Play extends Phaser.Scene {
     }
 
     const resValue = parseFloat(values.join('.'));
-
-    const isCorrectResult = (
-      resValue >= 0 &&
-      resValue <= (config.SATELLITE.ACCELERATION.DURATION / 1000)
-    );
+    const isCorrectResult = ( resValue >= 0 && resValue <= maxDuration );
 
     if (isCorrectResult) {
       values.forEach((value, i) => {
