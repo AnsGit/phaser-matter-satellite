@@ -25,7 +25,7 @@ class Play extends Phaser.Scene {
     this.matter.world.autoUpdate = false;
     this.graphics = this.add.graphics();
 
-    this.runner = { timestamp: 0 };
+    this.runner = { timestamp: 0, satellite: { rotation: null } };
 
     this.restore();
 
@@ -151,13 +151,14 @@ class Play extends Phaser.Scene {
   }
 
   updateSatelliteRotation(running = false, delta = 0) {
-    // Base rotation of the satellite
-    this.state.satellite.rotation = Phaser.Math.Angle.Between(this.planet.x, this.planet.y, this.satellite.x, this.satellite.y);
+    if (!running) {
+      // Base rotation of the satellite
+      this.state.satellite.rotation = Phaser.Math.Angle.Between(this.planet.x, this.planet.y, this.satellite.x, this.satellite.y);
+    }
+    else {
+      // Target change in the rotation of the satellite during acceleration
+      let rDelta;
 
-    // Target change in the rotation of the satellite during acceleration
-    let rDelta = this.satellite.acceleration.rotation + Math.PI;
-
-    if (running) {
       const { ACCELERATION } = config.SATELLITE;
       const duration = this.state.counter.switchers.value;
 
@@ -165,22 +166,63 @@ class Play extends Phaser.Scene {
       let multiplier;
       
       if (isStarting) {
+        rDelta = this.satellite.acceleration.rotation + Math.PI/2 - this.runner.satellite.rotation;
+        rDelta %= Math.PI * 2;
+      
         // Set smooth changing of the satellite rotation on start of acceleration
         multiplier = this.runner.timestamp / this.state.satellite.durations.start;
         rDelta *= multiplier;
+
+        this.state.satellite.rotation = this.runner.satellite.rotation + rDelta;
       }
       else {
         const isEnding = this.runner.timestamp > (duration - this.state.satellite.durations.end);
         
+        this.state.satellite.rotation = this.satellite.acceleration.rotation + Math.PI/2;
+
         if (isEnding) {
+          rDelta = Phaser.Math.Angle.Between(this.planet.x, this.planet.y, this.satellite.x, this.satellite.y) - (this.satellite.acceleration.rotation + Math.PI/2);
+          rDelta %= Math.PI * 2;
+
           // Set smooth changing of the satellite rotation on end of acceleration
-          multiplier = (duration - this.runner.timestamp) / this.state.satellite.durations.end;
+          multiplier = 1 - (duration - this.runner.timestamp) / this.state.satellite.durations.end;
           rDelta *= multiplier;
+          
+          this.state.satellite.rotation += rDelta;
         }
       }
-      
-      this.state.satellite.rotation += rDelta;
     }
+
+    // // Base rotation of the satellite
+    // this.state.satellite.rotation = Phaser.Math.Angle.Between(this.planet.x, this.planet.y, this.satellite.x, this.satellite.y);
+
+    // // Target change in the rotation of the satellite during acceleration
+    // let rDelta = this.satellite.acceleration.rotation + Math.PI;
+
+    // if (running) {
+    //   const { ACCELERATION } = config.SATELLITE;
+    //   const duration = this.state.counter.switchers.value;
+
+    //   const isStarting = this.runner.timestamp < this.state.satellite.durations.start;
+    //   let multiplier;
+      
+    //   if (isStarting) {
+    //     // Set smooth changing of the satellite rotation on start of acceleration
+    //     multiplier = this.runner.timestamp / this.state.satellite.durations.start;
+    //     rDelta *= multiplier;
+    //   }
+    //   else {
+    //     const isEnding = this.runner.timestamp > (duration - this.state.satellite.durations.end);
+        
+    //     if (isEnding) {
+    //       // Set smooth changing of the satellite rotation on end of acceleration
+    //       multiplier = (duration - this.runner.timestamp) / this.state.satellite.durations.end;
+    //       rDelta *= multiplier;
+    //     }
+    //   }
+      
+    //   this.state.satellite.rotation += rDelta;
+    // }
 
     this.buildSatelliteRotation();
   }
@@ -203,7 +245,7 @@ class Play extends Phaser.Scene {
   }
 
   moveSatellite() {
-    const rotation = this.satellite.rotation + Math.PI;
+    const rotation = this.satellite.rotation + Math.PI * 179/180;
       
     const velocity = {
       x: config.SATELLITE.POWER.DEFAULT * Math.cos(rotation),
@@ -462,6 +504,7 @@ class Play extends Phaser.Scene {
 
     this.running = true;
     this.runner.timestamp = 0;
+    this.runner.satellite.rotation = this.state.satellite.rotation;
 
     this.buttons.run.view.addClass('disabled');
     this.buttons.reset.view.removeClass('disabled');

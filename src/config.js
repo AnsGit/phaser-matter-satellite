@@ -25,16 +25,19 @@ const config = {
       DURATION: 9000,
       START: {
         // Part of full duration which will be used to rotation on start of acceleration
-        PART: 1/3
+        PART: 1/5
       },
       END: {
         // Part of full duration which will be used to rotation on end of acceleration
-        PART: 1/3
+        PART: 1/5
       }
     },
     DIRECTION: {
-      // x: 0, y: 256 - 56
-      x: 250, y: 90
+      x: 0, y: 256 - 56
+      // x: 0, y: 0
+      // x: 512, y: 0
+      // x: 512, y: 512
+      // x: 250, y: 90
     }
   },
   PHYSICS: {
