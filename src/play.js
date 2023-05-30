@@ -351,6 +351,8 @@ class Play extends Phaser.Scene {
         })
       }
     };
+
+    this.buildCounter();
     
     this.counter.view.append(
       this.counter.status.view.append(
@@ -365,8 +367,7 @@ class Play extends Phaser.Scene {
 
     this.parent.append(this.counter.view);
     
-    this.counter.status.height = this.counter.status.view.height() / 2;
-    this.buildCounter();
+    // this.counter.status.height = this.counter.status.view.height() / 2;
   }
 
   resetCounter() {
@@ -378,7 +379,7 @@ class Play extends Phaser.Scene {
   buildCounter() {
     const duration = config.SATELLITE.ACCELERATION.DURATION / 1000;
 
-    this.counter.status.inner.view.css({ height: this.counter.status.height });
+    // this.counter.status.inner.view.css({ height: this.counter.status.height });
     this.counter.status.inner.value.text(duration);
 
     this.counter.switchers.list.forEach((s, i) => {
