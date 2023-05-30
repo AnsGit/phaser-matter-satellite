@@ -10,7 +10,9 @@ const config = {
     ORBIT: {
       DEFAULT: { RADIUS: 56 },
       TARGET: { RADIUS: 216, SEGMENTS: 44 },
-      COLOR: '0x82D2FF'
+      WIDTH: 1,
+      COLOR: '0x82D2FF',
+      OPACITY: 0.5
     }
   },
   SATELLITE: {
@@ -38,6 +40,14 @@ const config = {
       // x: 512, y: 0
       // x: 512, y: 512
       // x: 250, y: 90
+    }
+  },
+  ARROW: {
+    WIDTH: 3,
+    COLOR: '0x03C3EF',
+    CORNER: {
+      RADIUS: 15,
+      ANGLE: Math.PI/2
     }
   },
   PHYSICS: {

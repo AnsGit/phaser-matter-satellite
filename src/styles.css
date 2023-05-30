@@ -26,6 +26,7 @@ b {
   font-size: 20px;
   line-height: 24px;
   color: #fff;
+  pointer-events: none;
 }
 
 .counter {
@@ -88,6 +89,7 @@ b {
   top: 0;
   display: flex;
   justify-content: space-between;
+  transition: opacity 0.5s;
 }
 
 .counter > .switchers:after {
@@ -147,44 +149,45 @@ b {
   cursor: pointer;
 }
 
-.buttons {
+.task-button {
   position: absolute;
-  display: flex;
-  right: 24px;
-  bottom: 24px;
-}
-
-.buttons > .button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 48px;
   height: 48px;
+  bottom: 24px;
   background-color: #765fde;
   background-position: center;
   background-repeat: no-repeat;
   border-radius: 16px;
   box-sizing: border-box;
+  transition: opacity 0.5s;
 }
 
-.buttons > .button:not(.disabled):hover {
+.task-button:not(.disabled):hover {
   background-color: #8168f0;
   cursor: pointer;
 }
 
-.buttons > .button.disabled {
+.task-button.disabled {
   background-color: #BDBDBD;
 }
 
-.buttons > .button.reset {
-  margin-right: 16px;
+.task-button.reset {
+  right: 88px;
   background-image: url('../assets/reset-icon.svg');
 }
 
-.buttons > .button.run {
+.task-button.run {
+  right: 24px;
   background-image: url('../assets/run-icon.svg');
 }
 
+.task-button.ignit {
+  right: 24px;
+  background-image: url('../assets/ignit-icon.svg');
+}
 
 .hidden {
   opacity: 0;

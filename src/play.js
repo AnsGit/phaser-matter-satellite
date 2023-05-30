@@ -31,6 +31,7 @@ class Play extends Phaser.Scene {
 
     this.createPlanet();
     this.createSatellite();
+    this.createArrow();
 
     this.createTitle();
     this.createCounter();
@@ -48,8 +49,9 @@ class Play extends Phaser.Scene {
 
   restore() {
     // delete window.localStorage['matter-satellite'];
-
+    
     this.state = {
+      step: 0, // 0 - before ignit, 1 - before arrow activation, 2 - before counter changing
       satellite: {
         rotation: config.SATELLITE.POSITION.ROTATION,
         durations: { start: 0, end: 0 }
@@ -62,6 +64,10 @@ class Play extends Phaser.Scene {
           value: 0,
           list: [ { value: 0 }, { value: 0 } ]
         }
+      },
+      arrow: {
+        activated: false,
+        end: { x: 0, y: 0 }
       }
     };
 
@@ -102,8 +108,8 @@ class Play extends Phaser.Scene {
       return new Phaser.Geom.Circle(config.PLANET.x, config.PLANET.y, RADIUS);
     });
 
-    // this.buildPlanet();
-    this.resetPlanet();
+    this.buildPlanet();
+    // this.resetPlanet();
   }
 
   resetPlanet() {
@@ -124,6 +130,7 @@ class Play extends Phaser.Scene {
 
   resetSatellite() {
     this.state.satellite.rotation = config.SATELLITE.POSITION.ROTATION;
+    this.satellite.setStatic(true);
     this.buildSatellite();
   }
 
@@ -255,6 +262,52 @@ class Play extends Phaser.Scene {
     this.satellite.setVelocity(velocity.x, velocity.y);
   }
 
+  createArrow() {
+    this.arrow = {
+      corner: { vertices: null }
+    }
+
+    this.buildArrow();
+  }
+
+  resetArrow() {
+    this.activateArrow(false);
+    this.buildArrow();
+  }
+
+  buildArrow() {
+    this.buildArrowCorner();
+
+    if ([1, 2].includes(this.state.step)) {
+      this.subscribeArrow();
+
+      if (this.state.step === 2) {
+        this.activateArrow(true);
+      }
+    }
+  }
+
+  buildArrowCorner() {
+    const baseA = Math.atan2(
+      this.satellite.y - this.state.arrow.end.y,
+      this.satellite.x - this.state.arrow.end.x
+    );
+
+    this.arrow.corner.vertices = [-1, 1].map((multiplier) => {
+      const a = baseA + config.ARROW.CORNER.ANGLE/2 * multiplier;
+
+      return {
+        x: this.state.arrow.end.x + Math.cos(a) * config.ARROW.CORNER.RADIUS,
+        y: this.state.arrow.end.y + Math.sin(a) * config.ARROW.CORNER.RADIUS
+      }
+    });
+  }
+
+  activateArrow(toActivate = true) {
+    this.state.arrow.activated = toActivate;
+    this.store();
+  }
+
   createTitle() {
     this.title = {
       view: $('<div>', { class: 'task-title', html: 'Переведи спутник на большую пунктирную<br>орбиту. Для этого включай двигатель<br>столько раз, сколько потребуется.' })
@@ -298,7 +351,7 @@ class Play extends Phaser.Scene {
         })
       }
     };
-
+    
     this.counter.view.append(
       this.counter.status.view.append(
         this.counter.status.inner.view.append(
@@ -311,9 +364,8 @@ class Play extends Phaser.Scene {
     );
 
     this.parent.append(this.counter.view);
-
+    
     this.counter.status.height = this.counter.status.view.height() / 2;
-
     this.buildCounter();
   }
 
@@ -332,6 +384,11 @@ class Play extends Phaser.Scene {
     this.counter.switchers.list.forEach((s, i) => {
       s.value.text(this.state.counter.switchers.list[i].value);
     });
+
+    if ([0, 1].includes(this.state.step)) {
+      this.hideCounterSwitchers();
+      this.disableCounter();
+    }
   }
 
   toggleCounter(b) {
@@ -397,6 +454,13 @@ class Play extends Phaser.Scene {
 
       this.state.counter.switchers.value = resValue * 1000;
     };
+
+    if (resValue > 0) {
+      this.enableButton('run');
+    }
+    else {
+      this.disableButton('run');
+    }
   }
 
   updateCounter(time, delta) {
@@ -432,23 +496,87 @@ class Play extends Phaser.Scene {
     this.counter.view.removeClass('disabled');
   }
 
+  showCounterSwitchers() {
+    this.counter.switchers.view.removeClass('hidden');
+  }
+
+  hideCounterSwitchers() {
+    this.counter.switchers.view.addClass('hidden');
+  }
+
   createButtons() {
     this.buttons = {
-      view: $('<div>', { class: 'buttons' }),
       reset: {
-        view: $('<div>', { class: 'button reset disabled' })
+        view: $('<div>', { class: 'task-button reset' })
+      },
+      ignit: {
+        view: $('<div>', { class: 'task-button ignit' })
       },
       run: {
-        view: $('<div>', { class: 'button run' })
+        view: $('<div>', { class: 'task-button run' })
       }
     };
 
-    this.buttons.view.append(
-      this.buttons.reset.view,
-      this.buttons.run.view
-    );
+    this.buildButtons();
 
-    this.parent.append(this.buttons.view);
+    this.parent.append(
+      this.buttons.reset.view,
+      this.buttons.run.view,
+      this.buttons.ignit.view
+    );
+  }
+
+  buildButtons() {
+    this.disableButton('reset');
+
+    switch (this.state.step) {
+      case 0: {
+        this.disableButton('run');
+        this.hideButton('run');
+        break;
+      }
+      case 1: {
+        this.disableButton('run');
+        this.hideButton('ignit');
+        break;
+      }
+      case 2: {
+        if (this.state.counter.switchers.value == 0) {
+          this.disableButton('run');
+        }
+        this.hideButton('ignit');
+        break;
+      }
+      case 3: {
+        this.disableButton('run');
+        this.hideButton('ignit');
+        break;
+      }
+    }
+  }
+
+  showButton(type) {
+    return this.toggleButton(type, true);
+  }
+
+  hideButton(type) {
+    return this.toggleButton(type, false);
+  }
+
+  toggleButton(type, toShow = true) {
+    const button = this.buttons[type];
+
+    button.view.toggleClass('hidden', !toShow);
+    
+    return new Promise( resolve => button.view.on('transitionend', resolve) );
+  }
+
+  disableButton(type) {
+    this.buttons[type].view.addClass('disabled');
+  }
+
+  enableButton(type) {
+    this.buttons[type].view.removeClass('disabled');
   }
 
   disableButtons() {
@@ -471,7 +599,8 @@ class Play extends Phaser.Scene {
       }
     }
     else {
-      this.moveSatellite();
+      // If satellite was ran, then move it smoothly along the new orbit
+      this.completed && this.moveSatellite();
     }
 
     this.updateSatelliteRotation(this.running, delta);
@@ -479,15 +608,64 @@ class Play extends Phaser.Scene {
 
   reset(props = {}) {
     this.running = false;
+    this.completed = false;
+    this.state.step = 1;
 
     this.resetPlanet();
     this.resetSatellite();
+    this.resetArrow();
     this.resetCounter();
-    
-    this.buttons.run.view.removeClass('disabled');
-    this.buttons.reset.view.addClass('disabled');
 
-    this.enableCounter();
+    this.disableCounter();
+    this.hideCounterSwitchers();
+    
+    this.disableButton('run');
+    this.disableButton('reset');
+
+    this.disableCounter();
+  }
+
+  async ignit() {
+    await this.hideButton('ignit');
+    await this.showButton('run');
+    this.state.step = 1;
+  }
+
+  subscribeArrow() {
+    const onPointerEvent = (pointer) => {
+      this.state.arrow.end.x = pointer.position.x;
+      this.state.arrow.end.y = pointer.position.y;
+
+      this.buildArrowCorner();
+    }
+
+    this.input.on('pointerdown', (pointer) => {
+      this.activateArrow(true);
+      onPointerEvent(pointer);
+
+      this.input.on('pointermove', onPointerEvent);
+
+      const onPointerUp = ((pointer) => {
+        onPointerEvent(pointer);
+
+        this.state.step = 2;
+        this.store();
+
+        this.showCounterSwitchers();
+        this.enableCounter();
+
+        this.input.removeAllListeners();
+        this.subscribeArrow();
+      });
+      
+      this.input.on('pointerup', onPointerUp);
+      this.input.on('pointerupoutside', onPointerUp);
+    });
+  }
+
+  destroyArrow() {
+    this.activateArrow(false);
+    this.input.removeAllListeners();
   }
 
   run() {
@@ -503,11 +681,17 @@ class Play extends Phaser.Scene {
     };
 
     this.running = true;
+    this.completed = true;
+
     this.runner.timestamp = 0;
     this.runner.satellite.rotation = this.state.satellite.rotation;
 
-    this.buttons.run.view.addClass('disabled');
-    this.buttons.reset.view.removeClass('disabled');
+    this.satellite.setStatic(false);
+
+    this.destroyArrow();
+
+    this.disableButton('run');
+    this.enableButton('reset');
 
     this.disableCounter();
   }
@@ -532,7 +716,17 @@ class Play extends Phaser.Scene {
       this.store();
     });
 
-    // RUN BALL
+    // IGNIT SATELLITE ENGINE
+    this.buttons.ignit.view.on('click', async (e) => {
+      // console.log('IGNITED');
+
+      await this.ignit();
+      this.store();
+      
+      this.subscribeArrow();
+    });
+
+    // RUN SATELLITE
     this.buttons.run.view.on('click', (e) => {
       // console.log('STARTED');
 
@@ -562,6 +756,30 @@ class Play extends Phaser.Scene {
     this.graphics.clear();
     
     this.drawOrbits();
+    this.drawArrow();
+  }
+
+  drawArrow() {
+    if (!this.state.arrow.activated) return;
+
+    this.graphics.lineStyle(config.ARROW.WIDTH, config.ARROW.COLOR);
+
+    this.graphics.beginPath();
+    this.graphics.moveTo(this.satellite.x, this.satellite.y);
+    this.graphics.lineTo(this.state.arrow.end.x, this.state.arrow.end.y);
+    this.graphics.closePath();
+    this.graphics.stroke();
+
+    this.graphics.beginPath();
+
+    const { vertices } = this.arrow.corner;
+
+    this.graphics.moveTo(vertices[0].x, vertices[0].y);
+    this.graphics.lineTo(this.state.arrow.end.x, this.state.arrow.end.y);
+    this.graphics.lineTo(vertices[1].x, vertices[1].y);
+
+    this.graphics.stroke();  
+    // this.graphics.closePath();
   }
 
   drawOrbit(o, dashed = false) {
@@ -588,7 +806,9 @@ class Play extends Phaser.Scene {
   }
 
   drawOrbits() {
-    this.graphics.lineStyle(1, config.PLANET.ORBIT.COLOR, 0.5);
+    const { WIDTH, COLOR, OPACITY } = config.PLANET.ORBIT;
+
+    this.graphics.lineStyle(WIDTH, COLOR, OPACITY);
     this.orbits.forEach( (o, i) => this.drawOrbit(o, i === 1) );
   }
 
