@@ -153,10 +153,6 @@ class Play extends Phaser.Scene {
   buildSatelliteAcceleration() {
     const rotation = Math.atan2( this.state.arrow.end.y - this.satellite.y, this.state.arrow.end.x - this.satellite.x );
 
-    // if ((rotation + Math.PI/2) > Math.PI) {
-    //   rotation -= Math.PI*2;
-    // }
-
     this.satellite.acceleration = { rotation };
   }
 
@@ -296,6 +292,71 @@ class Play extends Phaser.Scene {
         this.activateArrow(true);
       }
     }
+  }
+
+  buildArrowEndPosition(pointer) {
+    let { x, y } = pointer.position;
+
+    const xH = x - this.satellite.x;
+    const yH = y - this.satellite.y;
+    
+    let a = Math.atan2(yH, xH);
+
+    if (a > 0) {
+      a -= Math.PI * 2;
+    };
+
+    const minA = config.ARROW.ANGLE.MIN;
+    const maxA = config.ARROW.ANGLE.MAX;
+    
+    if (a < minA) {
+      if (x > this.satellite.x) {
+        x = Math.cos(minA) * config.ARROW.LENGTH.MIN + this.satellite.x;
+      }
+
+      y = (x - this.satellite.x) * Math.tan(minA) + this.satellite.y;
+
+      const xH = x - this.satellite.x;
+      const yH = y - this.satellite.y;
+      
+      const l = Math.max(
+        Math.sqrt( Math.pow(xH, 2) +  Math.pow(yH, 2) ),
+        config.ARROW.LENGTH.MIN
+      );
+
+      x = Math.cos(minA) * l + this.satellite.x;
+      y = Math.sin(minA) * l + this.satellite.y;
+    }
+    else if (a > maxA) {
+      if (y > this.satellite.y) {
+        y = Math.sin(maxA) * config.ARROW.LENGTH.MIN + this.satellite.y;
+      }
+
+      x = (y - this.satellite.y) / Math.tan(maxA) + this.satellite.x;
+
+      const xH = x - this.satellite.x;
+      const yH = y - this.satellite.y;
+      
+      const l = Math.max(
+        Math.sqrt( Math.pow(xH, 2) +  Math.pow(yH, 2) ),
+        config.ARROW.LENGTH.MIN
+      );
+
+      x = Math.cos(maxA) * l + this.satellite.x;
+      y = Math.sin(maxA) * l + this.satellite.y;
+    }
+    else {
+      const l = Math.max(
+        Math.sqrt( Math.pow(xH, 2) +  Math.pow(yH, 2) ),
+        config.ARROW.LENGTH.MIN
+      );
+
+      x = Math.cos(a) * l + this.satellite.x;
+      y = Math.sin(a) * l + this.satellite.y;
+    }
+
+    this.state.arrow.end.x = x;
+    this.state.arrow.end.y = y;
   }
 
   buildArrowCorner() {
@@ -645,9 +706,7 @@ class Play extends Phaser.Scene {
 
   subscribeArrow() {
     const onPointerEvent = (pointer) => {
-      this.state.arrow.end.x = pointer.position.x;
-      this.state.arrow.end.y = pointer.position.y;
-
+      this.buildArrowEndPosition(pointer);
       this.buildArrowCorner();
     }
 
