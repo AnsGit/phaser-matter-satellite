@@ -31,7 +31,7 @@ const config = {
       },
       END: {
         // Part of full duration which will be used to rotation on end of acceleration
-        PART: 4/5
+        PART: 1/2
       }
     }
   },

@@ -309,6 +309,7 @@ class Play extends Phaser.Scene {
     const minA = config.ARROW.ANGLE.MIN;
     const maxA = config.ARROW.ANGLE.MAX;
     
+    // Fix position if (a > min angle) or (a < max angle)
     if (a < minA) {
       a = minA;
 
@@ -331,11 +332,14 @@ class Play extends Phaser.Scene {
     xH = x - this.satellite.x;
     yH = y - this.satellite.y;
     
+    // Get current distance between start and and of the arrow
+    // Returns config.ARROW.LENGTH.MIN if distance between cursor and start of the arrow >= config.ARROW.LENGTH.MIN)
     const l = Math.max(
       Math.sqrt( Math.pow(xH, 2) +  Math.pow(yH, 2) ),
       config.ARROW.LENGTH.MIN
     );
 
+    // Fix position depending on correct distance between start and and of the arrow
     x = Math.cos(a) * l + this.satellite.x;
     y = Math.sin(a) * l + this.satellite.y;
 
@@ -666,20 +670,21 @@ class Play extends Phaser.Scene {
   reset(props = {}) {
     this.running = false;
     this.completed = false;
-    this.state.step = 1;
+    this.state.step = 2;
 
     this.resetPlanet();
     this.resetSatellite();
     this.resetArrow();
-    this.resetCounter();
+    // this.resetCounter();
+    this.buildCounter();
 
-    this.disableCounter();
-    this.hideCounterSwitchers();
+    // this.disableCounter();
+    // this.hideCounterSwitchers();
     
-    this.disableButton('run');
+    // this.disableButton('run');
+    this.enableCounter();
+    this.enableButton('run');
     this.disableButton('reset');
-
-    this.disableCounter();
   }
 
   async ignit() {
