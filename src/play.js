@@ -67,7 +67,7 @@ class Play extends Phaser.Scene {
       },
       arrow: {
         activated: false,
-        end: { x: 0, y: 0 }
+        end: { ...config.ARROW.END }
       }
     };
 
@@ -151,10 +151,13 @@ class Play extends Phaser.Scene {
   }
 
   buildSatelliteAcceleration() {
-    const direction = config.SATELLITE.DIRECTION;
-    const rotation = Math.atan2( direction.y - this.satellite.y, direction.x - this.satellite.x );
+    const rotation = Math.atan2( this.state.arrow.end.y - this.satellite.y, this.state.arrow.end.x - this.satellite.x );
 
-    this.satellite.acceleration = { direction, rotation };
+    // if ((rotation + Math.PI/2) > Math.PI) {
+    //   rotation -= Math.PI*2;
+    // }
+
+    this.satellite.acceleration = { rotation };
   }
 
   updateSatelliteRotation(running = false, delta = 0) {
@@ -175,6 +178,10 @@ class Play extends Phaser.Scene {
       if (isStarting) {
         rDelta = this.satellite.acceleration.rotation + Math.PI/2 - this.runner.satellite.rotation;
         rDelta %= Math.PI * 2;
+
+        if (rDelta > Math.PI) {
+          rDelta -= Math.PI * 2;
+        }
       
         // Set smooth changing of the satellite rotation on start of acceleration
         multiplier = this.runner.timestamp / this.state.satellite.durations.start;
@@ -190,6 +197,10 @@ class Play extends Phaser.Scene {
         if (isEnding) {
           rDelta = Phaser.Math.Angle.Between(this.planet.x, this.planet.y, this.satellite.x, this.satellite.y) - (this.satellite.acceleration.rotation + Math.PI/2);
           rDelta %= Math.PI * 2;
+
+          if (rDelta > Math.PI) {
+            rDelta -= Math.PI * 2;
+          }
 
           // Set smooth changing of the satellite rotation on end of acceleration
           multiplier = 1 - (duration - this.runner.timestamp) / this.state.satellite.durations.end;
@@ -648,6 +659,8 @@ class Play extends Phaser.Scene {
 
       const onPointerUp = ((pointer) => {
         onPointerEvent(pointer);
+        
+        this.buildSatelliteAcceleration();
 
         this.state.step = 2;
         this.store();
