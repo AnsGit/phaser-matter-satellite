@@ -25,12 +25,13 @@ class Play extends Phaser.Scene {
     this.matter.world.autoUpdate = false;
     this.graphics = this.add.graphics();
 
-    this.runner = { timestamp: 0 };
+    this.runner = { timestamp: 0, satellite: { rotation: null } };
 
     this.restore();
 
     this.createPlanet();
     this.createSatellite();
+    this.createArrow();
 
     this.createTitle();
     this.createCounter();
@@ -48,8 +49,9 @@ class Play extends Phaser.Scene {
 
   restore() {
     // delete window.localStorage['matter-satellite'];
-
+    
     this.state = {
+      step: 0, // 0 - before ignit, 1 - before arrow activation, 2 - before counter changing
       satellite: {
         rotation: config.SATELLITE.POSITION.ROTATION,
         durations: { start: 0, end: 0 }
@@ -62,6 +64,10 @@ class Play extends Phaser.Scene {
           value: 0,
           list: [ { value: 0 }, { value: 0 } ]
         }
+      },
+      arrow: {
+        activated: false,
+        end: { ...config.ARROW.END }
       }
     };
 
@@ -102,8 +108,8 @@ class Play extends Phaser.Scene {
       return new Phaser.Geom.Circle(config.PLANET.x, config.PLANET.y, RADIUS);
     });
 
-    // this.buildPlanet();
-    this.resetPlanet();
+    this.buildPlanet();
+    // this.resetPlanet();
   }
 
   resetPlanet() {
@@ -124,6 +130,7 @@ class Play extends Phaser.Scene {
 
   resetSatellite() {
     this.state.satellite.rotation = config.SATELLITE.POSITION.ROTATION;
+    this.satellite.setStatic(true);
     this.buildSatellite();
   }
 
@@ -144,20 +151,20 @@ class Play extends Phaser.Scene {
   }
 
   buildSatelliteAcceleration() {
-    const direction = config.SATELLITE.DIRECTION;
-    const rotation = Math.atan2( direction.y - this.satellite.y, direction.x - this.satellite.x );
+    const rotation = Math.atan2( this.state.arrow.end.y - this.satellite.y, this.state.arrow.end.x - this.satellite.x );
 
-    this.satellite.acceleration = { direction, rotation };
+    this.satellite.acceleration = { rotation };
   }
 
   updateSatelliteRotation(running = false, delta = 0) {
-    // Base rotation of the satellite
-    this.state.satellite.rotation = Phaser.Math.Angle.Between(this.planet.x, this.planet.y, this.satellite.x, this.satellite.y);
+    if (!running) {
+      // Base rotation of the satellite
+      this.state.satellite.rotation = Phaser.Math.Angle.Between(this.planet.x, this.planet.y, this.satellite.x, this.satellite.y);
+    }
+    else {
+      // Target change in the rotation of the satellite during acceleration
+      let rDelta;
 
-    // Target change in the rotation of the satellite during acceleration
-    let rDelta = this.satellite.acceleration.rotation + Math.PI;
-
-    if (running) {
       const { ACCELERATION } = config.SATELLITE;
       const duration = this.state.counter.switchers.value;
 
@@ -165,22 +172,71 @@ class Play extends Phaser.Scene {
       let multiplier;
       
       if (isStarting) {
+        rDelta = this.satellite.acceleration.rotation + Math.PI/2 - this.runner.satellite.rotation;
+        rDelta %= Math.PI * 2;
+
+        if (rDelta > Math.PI) {
+          rDelta -= Math.PI * 2;
+        }
+      
         // Set smooth changing of the satellite rotation on start of acceleration
         multiplier = this.runner.timestamp / this.state.satellite.durations.start;
         rDelta *= multiplier;
+
+        this.state.satellite.rotation = this.runner.satellite.rotation + rDelta;
       }
       else {
         const isEnding = this.runner.timestamp > (duration - this.state.satellite.durations.end);
         
+        this.state.satellite.rotation = this.satellite.acceleration.rotation + Math.PI/2;
+
         if (isEnding) {
+          rDelta = Phaser.Math.Angle.Between(this.planet.x, this.planet.y, this.satellite.x, this.satellite.y) - (this.satellite.acceleration.rotation + Math.PI/2);
+          rDelta %= Math.PI * 2;
+
+          if (rDelta > Math.PI) {
+            rDelta -= Math.PI * 2;
+          }
+
           // Set smooth changing of the satellite rotation on end of acceleration
-          multiplier = (duration - this.runner.timestamp) / this.state.satellite.durations.end;
+          multiplier = 1 - (duration - this.runner.timestamp) / this.state.satellite.durations.end;
           rDelta *= multiplier;
+          
+          this.state.satellite.rotation += rDelta;
         }
       }
-      
-      this.state.satellite.rotation += rDelta;
     }
+
+    // // Base rotation of the satellite
+    // this.state.satellite.rotation = Phaser.Math.Angle.Between(this.planet.x, this.planet.y, this.satellite.x, this.satellite.y);
+
+    // // Target change in the rotation of the satellite during acceleration
+    // let rDelta = this.satellite.acceleration.rotation + Math.PI;
+
+    // if (running) {
+    //   const { ACCELERATION } = config.SATELLITE;
+    //   const duration = this.state.counter.switchers.value;
+
+    //   const isStarting = this.runner.timestamp < this.state.satellite.durations.start;
+    //   let multiplier;
+      
+    //   if (isStarting) {
+    //     // Set smooth changing of the satellite rotation on start of acceleration
+    //     multiplier = this.runner.timestamp / this.state.satellite.durations.start;
+    //     rDelta *= multiplier;
+    //   }
+    //   else {
+    //     const isEnding = this.runner.timestamp > (duration - this.state.satellite.durations.end);
+        
+    //     if (isEnding) {
+    //       // Set smooth changing of the satellite rotation on end of acceleration
+    //       multiplier = (duration - this.runner.timestamp) / this.state.satellite.durations.end;
+    //       rDelta *= multiplier;
+    //     }
+    //   }
+      
+    //   this.state.satellite.rotation += rDelta;
+    // }
 
     this.buildSatelliteRotation();
   }
@@ -203,7 +259,7 @@ class Play extends Phaser.Scene {
   }
 
   moveSatellite() {
-    const rotation = this.satellite.rotation + Math.PI;
+    const rotation = this.satellite.rotation + Math.PI * 179/180;
       
     const velocity = {
       x: config.SATELLITE.POWER.DEFAULT * Math.cos(rotation),
@@ -211,6 +267,105 @@ class Play extends Phaser.Scene {
     };
     
     this.satellite.setVelocity(velocity.x, velocity.y);
+  }
+
+  createArrow() {
+    this.arrow = {
+      corner: { vertices: null }
+    }
+
+    this.buildArrow();
+  }
+
+  resetArrow() {
+    this.activateArrow(false);
+    this.buildArrow();
+  }
+
+  buildArrow() {
+    this.buildArrowCorner();
+
+    if ([1, 2].includes(this.state.step)) {
+      this.subscribeArrow();
+
+      if (this.state.step === 2) {
+        this.activateArrow(true);
+      }
+    }
+  }
+
+  buildArrowEndPosition(pointer) {
+    let { x, y } = pointer.position;
+
+    let xH = x - this.satellite.x;
+    let yH = y - this.satellite.y;
+    
+    let a = Math.atan2(yH, xH);
+
+    if (a > 0) {
+      a -= Math.PI * 2;
+    };
+
+    const minA = config.ARROW.ANGLE.MIN;
+    const maxA = config.ARROW.ANGLE.MAX;
+    
+    // Fix position if (a > min angle) or (a < max angle)
+    if (a < minA) {
+      a = minA;
+
+      if (x > this.satellite.x) {
+        x = Math.cos(a) * config.ARROW.LENGTH.MIN + this.satellite.x;
+      }
+
+      y = (x - this.satellite.x) * Math.tan(a) + this.satellite.y;
+    }
+    else if (a > maxA) {
+      a = maxA;
+
+      if (y > this.satellite.y) {
+        y = Math.sin(a) * config.ARROW.LENGTH.MIN + this.satellite.y;
+      }
+
+      x = (y - this.satellite.y) / Math.tan(a) + this.satellite.x;
+    }
+
+    xH = x - this.satellite.x;
+    yH = y - this.satellite.y;
+    
+    // Get current distance between start and and of the arrow
+    // Returns config.ARROW.LENGTH.MIN if distance between cursor and start of the arrow >= config.ARROW.LENGTH.MIN)
+    const l = Math.max(
+      Math.sqrt( Math.pow(xH, 2) +  Math.pow(yH, 2) ),
+      config.ARROW.LENGTH.MIN
+    );
+
+    // Fix position depending on correct distance between start and and of the arrow
+    x = Math.cos(a) * l + this.satellite.x;
+    y = Math.sin(a) * l + this.satellite.y;
+
+    this.state.arrow.end.x = x;
+    this.state.arrow.end.y = y;
+  }
+
+  buildArrowCorner() {
+    const baseA = Math.atan2(
+      this.satellite.y - this.state.arrow.end.y,
+      this.satellite.x - this.state.arrow.end.x
+    );
+
+    this.arrow.corner.vertices = [-1, 1].map((multiplier) => {
+      const a = baseA + config.ARROW.CORNER.ANGLE/2 * multiplier;
+
+      return {
+        x: this.state.arrow.end.x + Math.cos(a) * config.ARROW.CORNER.RADIUS,
+        y: this.state.arrow.end.y + Math.sin(a) * config.ARROW.CORNER.RADIUS
+      }
+    });
+  }
+
+  activateArrow(toActivate = true) {
+    this.state.arrow.activated = toActivate;
+    this.store();
   }
 
   createTitle() {
@@ -257,6 +412,8 @@ class Play extends Phaser.Scene {
       }
     };
 
+    this.buildCounter();
+    
     this.counter.view.append(
       this.counter.status.view.append(
         this.counter.status.inner.view.append(
@@ -269,10 +426,8 @@ class Play extends Phaser.Scene {
     );
 
     this.parent.append(this.counter.view);
-
-    this.counter.status.height = this.counter.status.view.height() / 2;
-
-    this.buildCounter();
+    
+    // this.counter.status.height = this.counter.status.view.height() / 2;
   }
 
   resetCounter() {
@@ -284,12 +439,17 @@ class Play extends Phaser.Scene {
   buildCounter() {
     const duration = config.SATELLITE.ACCELERATION.DURATION / 1000;
 
-    this.counter.status.inner.view.css({ height: this.counter.status.height });
+    // this.counter.status.inner.view.css({ height: this.counter.status.height });
     this.counter.status.inner.value.text(duration);
 
     this.counter.switchers.list.forEach((s, i) => {
       s.value.text(this.state.counter.switchers.list[i].value);
     });
+
+    if ([0, 1].includes(this.state.step)) {
+      this.hideCounterSwitchers();
+      this.disableCounter();
+    }
   }
 
   toggleCounter(b) {
@@ -355,6 +515,13 @@ class Play extends Phaser.Scene {
 
       this.state.counter.switchers.value = resValue * 1000;
     };
+
+    if (resValue > 0) {
+      this.enableButton('run');
+    }
+    else {
+      this.disableButton('run');
+    }
   }
 
   updateCounter(time, delta) {
@@ -390,23 +557,87 @@ class Play extends Phaser.Scene {
     this.counter.view.removeClass('disabled');
   }
 
+  showCounterSwitchers() {
+    this.counter.switchers.view.removeClass('hidden');
+  }
+
+  hideCounterSwitchers() {
+    this.counter.switchers.view.addClass('hidden');
+  }
+
   createButtons() {
     this.buttons = {
-      view: $('<div>', { class: 'buttons' }),
       reset: {
-        view: $('<div>', { class: 'button reset disabled' })
+        view: $('<div>', { class: 'task-button reset' })
+      },
+      ignit: {
+        view: $('<div>', { class: 'task-button ignit' })
       },
       run: {
-        view: $('<div>', { class: 'button run' })
+        view: $('<div>', { class: 'task-button run' })
       }
     };
 
-    this.buttons.view.append(
-      this.buttons.reset.view,
-      this.buttons.run.view
-    );
+    this.buildButtons();
 
-    this.parent.append(this.buttons.view);
+    this.parent.append(
+      this.buttons.reset.view,
+      this.buttons.run.view,
+      this.buttons.ignit.view
+    );
+  }
+
+  buildButtons() {
+    this.disableButton('reset');
+
+    switch (this.state.step) {
+      case 0: {
+        this.disableButton('run');
+        this.hideButton('run');
+        break;
+      }
+      case 1: {
+        this.disableButton('run');
+        this.hideButton('ignit');
+        break;
+      }
+      case 2: {
+        if (this.state.counter.switchers.value == 0) {
+          this.disableButton('run');
+        }
+        this.hideButton('ignit');
+        break;
+      }
+      case 3: {
+        this.disableButton('run');
+        this.hideButton('ignit');
+        break;
+      }
+    }
+  }
+
+  showButton(type) {
+    return this.toggleButton(type, true);
+  }
+
+  hideButton(type) {
+    return this.toggleButton(type, false);
+  }
+
+  toggleButton(type, toShow = true) {
+    const button = this.buttons[type];
+
+    button.view.toggleClass('hidden', !toShow);
+    
+    return new Promise( resolve => button.view.on('transitionend', resolve) );
+  }
+
+  disableButton(type) {
+    this.buttons[type].view.addClass('disabled');
+  }
+
+  enableButton(type) {
+    this.buttons[type].view.removeClass('disabled');
   }
 
   disableButtons() {
@@ -429,7 +660,8 @@ class Play extends Phaser.Scene {
       }
     }
     else {
-      this.moveSatellite();
+      // If satellite was ran, then move it smoothly along the new orbit
+      this.completed && this.moveSatellite();
     }
 
     this.updateSatelliteRotation(this.running, delta);
@@ -437,15 +669,65 @@ class Play extends Phaser.Scene {
 
   reset(props = {}) {
     this.running = false;
+    this.completed = false;
+    this.state.step = 2;
 
     this.resetPlanet();
     this.resetSatellite();
-    this.resetCounter();
-    
-    this.buttons.run.view.removeClass('disabled');
-    this.buttons.reset.view.addClass('disabled');
+    this.resetArrow();
+    // this.resetCounter();
+    this.buildCounter();
 
+    // this.disableCounter();
+    // this.hideCounterSwitchers();
+    
+    // this.disableButton('run');
     this.enableCounter();
+    this.enableButton('run');
+    this.disableButton('reset');
+  }
+
+  async ignit() {
+    await this.hideButton('ignit');
+    await this.showButton('run');
+    this.state.step = 1;
+  }
+
+  subscribeArrow() {
+    const onPointerEvent = (pointer) => {
+      this.buildArrowEndPosition(pointer);
+      this.buildArrowCorner();
+    }
+
+    this.input.on('pointerdown', (pointer) => {
+      this.activateArrow(true);
+      onPointerEvent(pointer);
+
+      this.input.on('pointermove', onPointerEvent);
+
+      const onPointerUp = ((pointer) => {
+        onPointerEvent(pointer);
+        
+        this.buildSatelliteAcceleration();
+
+        this.state.step = 2;
+        this.store();
+
+        this.showCounterSwitchers();
+        this.enableCounter();
+
+        this.input.removeAllListeners();
+        this.subscribeArrow();
+      });
+      
+      this.input.on('pointerup', onPointerUp);
+      this.input.on('pointerupoutside', onPointerUp);
+    });
+  }
+
+  destroyArrow() {
+    this.activateArrow(false);
+    this.input.removeAllListeners();
   }
 
   run() {
@@ -461,10 +743,17 @@ class Play extends Phaser.Scene {
     };
 
     this.running = true;
-    this.runner.timestamp = 0;
+    this.completed = true;
 
-    this.buttons.run.view.addClass('disabled');
-    this.buttons.reset.view.removeClass('disabled');
+    this.runner.timestamp = 0;
+    this.runner.satellite.rotation = this.state.satellite.rotation;
+
+    this.satellite.setStatic(false);
+
+    this.destroyArrow();
+
+    this.disableButton('run');
+    this.enableButton('reset');
 
     this.disableCounter();
   }
@@ -489,7 +778,17 @@ class Play extends Phaser.Scene {
       this.store();
     });
 
-    // RUN BALL
+    // IGNIT SATELLITE ENGINE
+    this.buttons.ignit.view.on('click', async (e) => {
+      // console.log('IGNITED');
+
+      await this.ignit();
+      this.store();
+      
+      this.subscribeArrow();
+    });
+
+    // RUN SATELLITE
     this.buttons.run.view.on('click', (e) => {
       // console.log('STARTED');
 
@@ -519,6 +818,30 @@ class Play extends Phaser.Scene {
     this.graphics.clear();
     
     this.drawOrbits();
+    this.drawArrow();
+  }
+
+  drawArrow() {
+    if (!this.state.arrow.activated) return;
+
+    this.graphics.lineStyle(config.ARROW.WIDTH, config.ARROW.COLOR);
+
+    this.graphics.beginPath();
+    this.graphics.moveTo(this.satellite.x, this.satellite.y);
+    this.graphics.lineTo(this.state.arrow.end.x, this.state.arrow.end.y);
+    this.graphics.closePath();
+    this.graphics.stroke();
+
+    this.graphics.beginPath();
+
+    const { vertices } = this.arrow.corner;
+
+    this.graphics.moveTo(vertices[0].x, vertices[0].y);
+    this.graphics.lineTo(this.state.arrow.end.x, this.state.arrow.end.y);
+    this.graphics.lineTo(vertices[1].x, vertices[1].y);
+
+    this.graphics.stroke();  
+    // this.graphics.closePath();
   }
 
   drawOrbit(o, dashed = false) {
@@ -545,7 +868,9 @@ class Play extends Phaser.Scene {
   }
 
   drawOrbits() {
-    this.graphics.lineStyle(1, config.PLANET.ORBIT.COLOR, 0.5);
+    const { WIDTH, COLOR, OPACITY } = config.PLANET.ORBIT;
+
+    this.graphics.lineStyle(WIDTH, COLOR, OPACITY);
     this.orbits.forEach( (o, i) => this.drawOrbit(o, i === 1) );
   }
 
