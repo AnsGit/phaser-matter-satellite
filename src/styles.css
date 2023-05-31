@@ -11,6 +11,15 @@ body {
   position: relative;
 }
 
+#game-container:before {
+  content: '';
+  position: absolute;
+  width: 260px;
+  height: 270px;
+  right: 0;
+  bottom: 0;
+}
+
 b {
   display: contents;
 }
