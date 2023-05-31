@@ -74,7 +74,11 @@ class Play extends Phaser.Scene {
     if (!config.LOCAL_STORAGE) return;
     if (!window.localStorage['matter-satellite']) return;
 
-    this.state = JSON.parse(window.localStorage['matter-satellite']);
+    this.state = $.extend(
+      true,
+      this.state,
+      JSON.parse(window.localStorage['matter-satellite'])
+    );
   }
 
   build() {
