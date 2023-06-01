@@ -143,6 +143,24 @@ class Play extends Phaser.Scene {
     this.satellite = this.matter.add.image(0, 0, 'satellite', null, { mass: 0.1 });
     // this.buildSatellite();
     this.resetSatellite();
+
+    setTimeout(() => {
+      const { data } = this.state.satellite;
+      const ex = data.ex - 100;
+      const ey = data.ey - 56;
+      
+      const step = 0.02;
+      const time = 9000;
+    
+      const angle = Math.atan2(ey - this.state.satellite.y, ex - this.state.satellite.x);
+      const [dvx, dvy] = [
+        Math.cos(angle) * step * time,
+        Math.sin(angle) * step * time
+      ];
+
+      data.vx += dvx / 1000;
+      data.vy += dvy / 1000;
+    }, 0);
   }
 
   resetSatellite() {
@@ -294,7 +312,7 @@ class Play extends Phaser.Scene {
     this.satellite.setVelocity(velocity.x, velocity.y);
   }
 
-  moveSatellite() {
+  moveSatellite(iterations = 3) {
     // const rotation = this.satellite.rotation + Math.PI * 179/180;
       
     // const velocity = {
@@ -306,22 +324,24 @@ class Play extends Phaser.Scene {
 
     const { data } = this.state.satellite;
     
-    this.state.satellite.x += data.vx / 2;
-    this.state.satellite.y += data.vy / 2;
+    for(let i = 0; i < iterations; i++) {
+      this.state.satellite.x += data.vx / 2;
+      this.state.satellite.y += data.vy / 2;
 
-    this.satellite.setPosition(this.state.satellite.x, this.state.satellite.y);
+      this.satellite.setPosition(this.state.satellite.x, this.state.satellite.y);
 
-    data.dx = data.ex - this.state.satellite.x
-    data.dy = data.ey - this.state.satellite.y;
-    data.dl = Math.sqrt(Math.pow(data.dx, 2) + Math.pow(data.dy, 2));
-    data.dl3 = Math.pow(data.dl, 3);
-    data.dvx = this.runner.satellite.mu * data.dx / data.dl3;
-    data.dvy = this.runner.satellite.mu * data.dy / data.dl3;
-    data.vx += data.dvx;
-    data.vy += data.dvy;
+      data.dx = data.ex - this.state.satellite.x
+      data.dy = data.ey - this.state.satellite.y;
+      data.dl = Math.sqrt(Math.pow(data.dx, 2) + Math.pow(data.dy, 2));
+      data.dl3 = Math.pow(data.dl, 3);
+      data.dvx = this.runner.satellite.mu * data.dx / data.dl3;
+      data.dvy = this.runner.satellite.mu * data.dy / data.dl3;
+      data.vx += data.dvx;
+      data.vy += data.dvy;
 
-    this.state.satellite.x += data.vx / 2
-    this.state.satellite.y += data.vy / 2;
+      this.state.satellite.x += data.vx / 2
+      this.state.satellite.y += data.vy / 2;
+    }
   }
 
   createArrow() {
