@@ -4,7 +4,7 @@ const config = {
   HEIGHT: 512,
   BACKGROUND_COLOR: '0x030B35',
   PLANET: {
-    SIZE: 32,
+    RADIUS: 32,
     x: 512,
     y: 256,
     ORBIT: {
@@ -19,6 +19,7 @@ const config = {
     WIDTH: 52,
     HEIGHT: 49,
     POSITION: { ROTATION: -Math.PI/2 },
+    V: { x: -0.5, y: 0 },
     POWER: {
       DEFAULT: 0.1,
       ACCELERATION: 1.3

@@ -18,9 +18,9 @@ const props = {
       gravity: {
         scale: 0
       },
-      plugins: {
-        attractors: true
-      },
+      // plugins: {
+      //   attractors: false
+      // },
       // debug: true,
     }
   },

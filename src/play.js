@@ -9,7 +9,7 @@ class Play extends Phaser.Scene {
   graphics;
 
   preload() {
-    this.load.image("planet", require("../assets/planet.png"), config.PLANET.SIZE * 2, config.PLANET.SIZE * 2);
+    this.load.image("planet", require("../assets/planet.png"), config.PLANET.RADIUS * 2, config.PLANET.RADIUS * 2);
     this.load.image("satellite", require("../assets/satellite.png"), config.SATELLITE.WIDTH, config.SATELLITE.HEIGHT);
   }
 
@@ -25,7 +25,15 @@ class Play extends Phaser.Scene {
     this.matter.world.autoUpdate = false;
     this.graphics = this.add.graphics();
 
-    this.runner = { timestamp: 0, satellite: { rotation: null } };
+    const { V } = config.SATELLITE;
+
+    this.runner = {
+      timestamp: 0,
+      satellite: {
+        rotation: null,
+        mu: (Math.pow(V.x, 2) + Math.pow(V.y, 2)) * config.PLANET.ORBIT.DEFAULT.RADIUS
+      }
+    };
 
     this.restore();
 
@@ -53,8 +61,21 @@ class Play extends Phaser.Scene {
     this.state = {
       step: 0, // 0 - before ignit, 1 - before arrow activation, 2 - before counter changing
       satellite: {
-        rotation: config.SATELLITE.POSITION.ROTATION,
-        durations: { start: 0, end: 0 }
+        ...this.getSatelliteDefaultPosition(),
+        // rotation: config.SATELLITE.POSITION.ROTATION,
+        durations: { start: 0, end: 0 },
+        data: {
+          vx: config.SATELLITE.V.x,
+          vy: config.SATELLITE.V.y,
+          dx: null,
+          dy: null,
+          dl: null,
+          dl3: null,
+          dvx: null,
+          dvy: null,
+          ex: config.PLANET.x,
+          ey: config.PLANET.y
+        }
       },
       planet: {
         orbit:  { radius: config.PLANET.ORBIT.DEFAULT.RADIUS }
@@ -94,15 +115,7 @@ class Play extends Phaser.Scene {
       {
         shape: {
           type: 'circle',
-          radius: config.PLANET.ORBIT.DEFAULT.RADIUS - config.SATELLITE.HEIGHT/2
-        },
-        plugin: {
-          attractors: [
-            (bodyA, bodyB) => ({
-              x: (bodyA.position.x - bodyB.position.x) * 0.000001,
-              y: (bodyA.position.y - bodyB.position.y) * 0.000001
-            })
-          ]
+          radius: config.PLANET.RADIUS
         }
       }
     );
@@ -122,19 +135,19 @@ class Play extends Phaser.Scene {
   }
 
   buildPlanet() {
-    this.planet.setCircle(this.state.planet.orbit.radius - config.SATELLITE.HEIGHT/2);
+    // this.planet.setCircle(this.state.planet.orbit.radius - config.SATELLITE.HEIGHT/2);
     this.planet.setStatic(true);
   }
 
   createSatellite() {
-    this.satellite = this.matter.add.image(0, 0, 'satellite', null, { mass: 1 });    
+    this.satellite = this.matter.add.image(0, 0, 'satellite', null, { mass: 0.1 });
     // this.buildSatellite();
     this.resetSatellite();
   }
 
   resetSatellite() {
     this.state.satellite.rotation = config.SATELLITE.POSITION.ROTATION;
-    this.satellite.setStatic(true);
+    // this.satellite.setStatic(true);
     this.buildSatellite();
   }
 
@@ -142,16 +155,35 @@ class Play extends Phaser.Scene {
     this.buildSatellitePosition();
     this.buildSatelliteAcceleration();
     this.buildSatelliteRotation();
+
+
+    this.satellite.setFriction(0);
+    this.satellite.setFrictionAir(0);
+
+    // setTimeout(() => {
+    //   this.satellite.setVelocity(-1, 0);
+    // }, 500);
   }
+
+  getSatelliteDefaultPosition() {
+    const { ROTATION } = config.SATELLITE.POSITION;
+    const { RADIUS } = config.PLANET.ORBIT.DEFAULT;
+
+    return {
+      x: config.PLANET.x + RADIUS * Math.cos(-ROTATION),
+      y: config.PLANET.y - RADIUS * Math.sin(-ROTATION)
+    }
+  }
+
   
   buildSatellitePosition() {
-    const { rotation } = this.state.satellite;
-    const { radius } = this.state.planet.orbit;
+    // const { rotation } = this.state.satellite;
+    // const { radius } = this.state.planet.orbit;
 
-    const x = config.PLANET.x + radius * Math.cos(-rotation);
-    const y = config.PLANET.y - radius * Math.sin(-rotation);
+    // const x = config.PLANET.x + radius * Math.cos(-rotation);
+    // const y = config.PLANET.y - radius * Math.sin(-rotation);
 
-    this.satellite.setPosition(x, y);
+    this.satellite.setPosition(this.state.satellite.x, this.state.satellite.y);
   }
 
   buildSatelliteAcceleration() {
@@ -263,14 +295,33 @@ class Play extends Phaser.Scene {
   }
 
   moveSatellite() {
-    const rotation = this.satellite.rotation + Math.PI * 179/180;
+    // const rotation = this.satellite.rotation + Math.PI * 179/180;
       
-    const velocity = {
-      x: config.SATELLITE.POWER.DEFAULT * Math.cos(rotation),
-      y: config.SATELLITE.POWER.DEFAULT * Math.sin(rotation)
-    };
+    // const velocity = {
+    //   x: config.SATELLITE.POWER.DEFAULT * Math.cos(rotation),
+    //   y: config.SATELLITE.POWER.DEFAULT * Math.sin(rotation)
+    // };
     
-    this.satellite.setVelocity(velocity.x, velocity.y);
+    // this.satellite.setVelocity(velocity.x, velocity.y);
+
+    const { data } = this.state.satellite;
+    
+    this.state.satellite.x += data.vx / 2;
+    this.state.satellite.y += data.vy / 2;
+
+    this.satellite.setPosition(this.state.satellite.x, this.state.satellite.y);
+
+    data.dx = data.ex - this.state.satellite.x
+    data.dy = data.ey - this.state.satellite.y;
+    data.dl = Math.sqrt(Math.pow(data.dx, 2) + Math.pow(data.dy, 2));
+    data.dl3 = Math.pow(data.dl, 3);
+    data.dvx = this.runner.satellite.mu * data.dx / data.dl3;
+    data.dvy = this.runner.satellite.mu * data.dy / data.dl3;
+    data.vx += data.dvx;
+    data.vy += data.dvy;
+
+    this.state.satellite.x += data.vx / 2
+    this.state.satellite.y += data.vy / 2;
   }
 
   createArrow() {
@@ -664,8 +715,7 @@ class Play extends Phaser.Scene {
       }
     }
     else {
-      // If satellite was ran, then move it smoothly along the new orbit
-      this.completed && this.moveSatellite();
+      this.moveSatellite();
     }
 
     this.updateSatelliteRotation(this.running, delta);
