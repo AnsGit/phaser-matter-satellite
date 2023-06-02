@@ -1,5 +1,5 @@
 const config = {
-  LOCAL_STORAGE: false,
+  LOCAL_STORAGE: true,
   WIDTH: 1024,
   HEIGHT: 512,
   BACKGROUND_COLOR: '0x030B35',
@@ -37,14 +37,7 @@ const config = {
     }
   },
   ARROW: {
-    END: { x: 0, y: 200 },
     WIDTH: 3,
-    ANGLE: {
-      // MIN: -260 * Math.PI/180,
-      // MAX: -50 * Math.PI/180
-      MIN: -190 * Math.PI/180,
-      MAX: -90 * Math.PI/180
-    },
     LENGTH: { MIN: 40 },
     COLOR: '0x03C3EF',
     CORNER: {
