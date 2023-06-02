@@ -63,14 +63,9 @@ class Play extends Phaser.Scene {
       step: 0, // 0 - before ignit, 1 - before arrow activation, 2 - before counter changing, 3 - after running
       satellite: {
         ...this.getSatelliteDefaultPosition(),
-        // rotation: config.SATELLITE.POSITION.ROTATION,
-        // durations: { start: 0, end: 0 },
         vx: config.SATELLITE.V.x,
         vy: config.SATELLITE.V.y
       },
-      // planet: {
-      //   orbit:  { radius: config.PLANET.ORBIT.DEFAULT.RADIUS }
-      // },
       counter: {
         switchers: {
           value: {
@@ -85,8 +80,6 @@ class Play extends Phaser.Scene {
         end: { x: config.PLANET.x, y: config.PLANET.y }
       }
     };
-
-    // console.log(this.state);
 
     if (!config.LOCAL_STORAGE) return;
     if (!window.localStorage['matter-satellite']) return;
@@ -121,13 +114,11 @@ class Play extends Phaser.Scene {
   }
 
   resetPlanet() {
-    // this.state.planet.orbit.radius = config.PLANET.ORBIT.DEFAULT.RADIUS;
     this.orbits[2] = [];
     this.buildPlanet();
   }
 
   buildPlanet() {
-    // this.planet.setCircle(this.state.planet.orbit.radius - config.SATELLITE.HEIGHT/2);
     this.planet.setStatic(true);
   }
 
@@ -147,10 +138,35 @@ class Play extends Phaser.Scene {
   }
 
   buildOrbits() {
+    console.log('Correct orbit:', this.isCorrectOrbit());
+
     if (!config.PLANET.ORBIT.CURRENT.ENABLED) return;
 
-    this.orbits[2] = [];
+    this.orbits[2] = this.getCurrentOrbitPoints() || [];
+  }
 
+  isCorrectOrbit() {
+    const points = this.getCurrentOrbitPoints();
+
+    if (!points) return false;
+
+    const maxD = config.PLANET.ORBIT.TARGET.RADIUS + config.PLANET.ORBIT.TARGET.WIDTH/2;
+    const minD = config.PLANET.ORBIT.TARGET.RADIUS - config.PLANET.ORBIT.TARGET.WIDTH/2;
+
+    for(let i = 0; i < points.length; i++) {
+      const { x, y } = points[i];
+
+      const d = Math.sqrt(
+        Math.pow(x - config.PLANET.x, 2) + Math.pow(y - config.PLANET.y, 2)
+      );
+
+      if (d > maxD || d < minD) return false;
+    }
+
+    return true;
+  }
+
+  getCurrentOrbitPoints(step = 30, max = 10000) {
     let { x, y, vx, vy } = this.state.satellite;
     let dx, dy, dl, dl3, dvx, dvy;
 
@@ -161,11 +177,13 @@ class Play extends Phaser.Scene {
 
     let i = 0;
     let prevAngle = 0;
-    let currentAngle = 1;
+    let currentAngle = 0;
     let angleDiff = 0;
+    let angle = 0;
 
-    // return;
-    while (currentAngle > -Math.PI) {
+    const points = [];
+
+    while (angle < Math.PI * 2) {
       prevAngle = currentAngle;
 
       [x, y] = [x + vx / 2, y + vy / 2];
@@ -176,95 +194,30 @@ class Play extends Phaser.Scene {
       [vx, vy] = [vx + dvx, vy + dvy];
       [x, y] = [x + vx / 2, y + vy / 2];
 
-      // currentAngle = (Math.atan2(-dy, -dx) + Math.PI * 2) % Math.PI * 2;
-      // currentAngle = Math.atan2(-dy, -dx);
-
-      // console.log(parseInt(Math.atan2(-dy, -dx) * 180 / Math.PI));
-      // console.log(parseInt((currentAngle) * 180 / Math.PI));
-
-      // currentAngle = Math.atan2(-dy, -dx);
-
-      // if (currentAngle > 0) {
-      //   currentAngle -= Math.PI * 2;
-      // }
-
-      // currentAngle *= -1;
-
-      // const a = Math.atan2(-dy, -dx);
-      // console.log(parseInt((a) * 180 / Math.PI));
-
-      // if (a < 0) {
-      //   // currentAngle += Math.PI * 2;
-      //   console.log(parseInt((a + Math.PI * 2) * 180 / Math.PI));
-      // }
-      // else {
-      //   console.log(parseInt((a) * 180 / Math.PI));
-      // }
-
-
-      // console.log(parseInt((a) * 180 / Math.PI));
-
-      currentAngle = (Math.atan2(-dy, -dx) + Math.PI * 2) % Math.PI * 2;
+      currentAngle = (Math.atan2(-dy, -dx) + Math.PI * 2) % (Math.PI * 2);
 
       if (i === 0) {
         angleDiff = (Math.PI * 2 - currentAngle);
+        currentAngle += angleDiff;
+        angle = 0;
       }
       else {
         if (currentAngle > prevAngle) {
           currentAngle -= Math.PI * 2;
         }
+        currentAngle += angleDiff;
+        angle += (prevAngle - currentAngle);
       }
-      currentAngle += angleDiff;
 
-      console.log(parseInt(currentAngle * 180 / Math.PI));
-
-      // currentAngle = angleDiff - currentAngle;
-
-      if (i % 20 === 0) this.orbits[2].push({ x, y });
+      if (i % step === 0) points.push({ x, y });
       i++;
+
+      if (i > max) {
+        return false;
+      }
     }
 
-    // console.log(this.orbits[2].length);
-
-    return;
-
-    for (let i = 0; i < 100000; i++) {
-      prevAngle = currentAngle;
-
-      [x, y] = [x + vx / 2, y + vy / 2];
-      [dx, dy] = [ex - x, ey - y];
-      dl = Math.sqrt(Math.pow(dx, 2) + Math.pow(dy, 2));
-      dl3 = Math.pow(dl, 3);
-      [dvx, dvy] = [mu * dx / dl3, mu * dy / dl3];
-      [vx, vy] = [vx + dvx, vy + dvy];
-      [x, y] = [x + vx / 2, y + vy / 2];
-
-      currentAngle = (Math.atan2(-dy, -dx) + Math.PI * 2) % Math.PI * 2;
-
-      if (i === 0) {
-        angleDiff = (Math.PI * 2 - currentAngle);
-        currentAngle += angleDiff;
-        // endAngle = currentAngle;
-      }
-      else {
-        if (currentAngle > prevAngle) {
-          currentAngle -= Math.PI * 2;
-        }
-        currentAngle += angleDiff;
-        
-      }
-      // currentAngle -= Math.PI * 2;
-      // console.log(parseInt(currentAngle * 180 / Math.PI));
-
-      // console.log(Math.abs((Math.atan2(-dy, -dx) + Math.PI * 2) % Math.PI * 2));
-      // console.log(
-      //   parseInt(
-      //     ((Math.atan2(-dy, -dx) + Math.PI * 2) % Math.PI * 2) * 180 / Math.PI
-      //   )
-      // );
-
-      if (i % 20 === 0) this.orbits[2].push({ x, y });
-    }
+    return points;
   }
 
   createSatellite() {
@@ -280,7 +233,6 @@ class Play extends Phaser.Scene {
   }
 
   resetSatellite() {
-    // this.state.satellite.rotation = config.SATELLITE.POSITION.ROTATION;
     this.state.satellite = {
       ...this.state.satellite,
       ...this.getSatelliteDefaultPosition(),
@@ -288,16 +240,12 @@ class Play extends Phaser.Scene {
       vy: config.SATELLITE.V.y
     }
 
-    // this.state.satellite.data.vx = config.SATELLITE.V.x;
-    // this.state.satellite.data.vy = config.SATELLITE.V.y;
     this.satellite.setStatic(false);
     this.buildSatellite();
   }
 
   buildSatellite() {
     this.buildSatellitePosition();
-    // this.buildSatelliteAcceleration();
-    // this.buildSatelliteRotation();
 
 
     this.satellite.setFriction(0);
@@ -310,10 +258,6 @@ class Play extends Phaser.Scene {
         this.buildSatelliteRotation(this.state.arrow.end.x, this.state.arrow.end.y);
       }
     }
-
-    // setTimeout(() => {
-    //   this.satellite.setVelocity(-1, 0);
-    // }, 500);
   }
 
   getSatelliteDefaultPosition() {
@@ -328,14 +272,6 @@ class Play extends Phaser.Scene {
 
   
   buildSatellitePosition() {
-    // const { rotation } = this.state.satellite;
-    // const { radius } = this.state.planet.orbit;
-
-    // const x = config.PLANET.x + radius * Math.cos(-rotation);
-    // const y = config.PLANET.y - radius * Math.sin(-rotation);
-
-    // console.log(this.state.satellite);
-
     this.satellite.setPosition(this.state.satellite.x, this.state.satellite.y);
   }
 
@@ -354,97 +290,6 @@ class Play extends Phaser.Scene {
     this.state.satellite.vx += dvx / 1000;
     this.state.satellite.vy += dvy / 1000;
   }
-  
-  // buildSatelliteAcceleration() {
-  //   const rotation = Math.atan2( this.state.arrow.end.y - this.satellite.y, this.state.arrow.end.x - this.satellite.x );
-
-  //   this.satellite.acceleration = { rotation };
-  // }
-
-  // updateSatelliteRotation(running = false, delta = 0) {
-  //   if (!running) {
-  //     // Base rotation of the satellite
-  //     this.state.satellite.rotation = Phaser.Math.Angle.Between(this.planet.x, this.planet.y, this.satellite.x, this.satellite.y);
-  //   }
-  //   else {
-  //     // Target change in the rotation of the satellite during acceleration
-  //     let rDelta;
-
-  //     const { ACCELERATION } = config.SATELLITE;
-  //     const duration = this.state.counter.switchers.value;
-
-  //     const isStarting = this.runner.timestamp < this.state.satellite.durations.start;
-  //     let multiplier;
-      
-  //     if (isStarting) {
-  //       rDelta = this.satellite.acceleration.rotation + Math.PI/2 - this.runner.satellite.rotation;
-  //       rDelta %= Math.PI * 2;
-
-  //       if (rDelta > Math.PI) {
-  //         rDelta -= Math.PI * 2;
-  //       }
-      
-  //       // Set smooth changing of the satellite rotation on start of acceleration
-  //       multiplier = this.runner.timestamp / this.state.satellite.durations.start;
-  //       rDelta *= multiplier;
-
-  //       this.state.satellite.rotation = this.runner.satellite.rotation + rDelta;
-  //     }
-  //     else {
-  //       const isEnding = this.runner.timestamp > (duration - this.state.satellite.durations.end);
-        
-  //       this.state.satellite.rotation = this.satellite.acceleration.rotation + Math.PI/2;
-
-  //       if (isEnding) {
-  //         rDelta = Phaser.Math.Angle.Between(this.planet.x, this.planet.y, this.satellite.x, this.satellite.y) - (this.satellite.acceleration.rotation + Math.PI/2);
-  //         rDelta %= Math.PI * 2;
-
-  //         if (rDelta > Math.PI) {
-  //           rDelta -= Math.PI * 2;
-  //         }
-
-  //         // Set smooth changing of the satellite rotation on end of acceleration
-  //         multiplier = 1 - (duration - this.runner.timestamp) / this.state.satellite.durations.end;
-  //         rDelta *= multiplier;
-          
-  //         this.state.satellite.rotation += rDelta;
-  //       }
-  //     }
-  //   }
-
-  //   // // Base rotation of the satellite
-  //   // this.state.satellite.rotation = Phaser.Math.Angle.Between(this.planet.x, this.planet.y, this.satellite.x, this.satellite.y);
-
-  //   // // Target change in the rotation of the satellite during acceleration
-  //   // let rDelta = this.satellite.acceleration.rotation + Math.PI;
-
-  //   // if (running) {
-  //   //   const { ACCELERATION } = config.SATELLITE;
-  //   //   const duration = this.state.counter.switchers.value;
-
-  //   //   const isStarting = this.runner.timestamp < this.state.satellite.durations.start;
-  //   //   let multiplier;
-      
-  //   //   if (isStarting) {
-  //   //     // Set smooth changing of the satellite rotation on start of acceleration
-  //   //     multiplier = this.runner.timestamp / this.state.satellite.durations.start;
-  //   //     rDelta *= multiplier;
-  //   //   }
-  //   //   else {
-  //   //     const isEnding = this.runner.timestamp > (duration - this.state.satellite.durations.end);
-        
-  //   //     if (isEnding) {
-  //   //       // Set smooth changing of the satellite rotation on end of acceleration
-  //   //       multiplier = (duration - this.runner.timestamp) / this.state.satellite.durations.end;
-  //   //       rDelta *= multiplier;
-  //   //     }
-  //   //   }
-      
-  //   //   this.state.satellite.rotation += rDelta;
-  //   // }
-
-  //   this.buildSatelliteRotation();
-  // }
 
   buildSatelliteRotation(x, y) {
     const rotation = Math.atan2(
@@ -455,31 +300,8 @@ class Play extends Phaser.Scene {
     this.satellite.setRotation(rotation + Math.PI);
   }
 
-  // updateSatellite(time, delta) {
-  //   // const rotation = this.satellite.rotation + this.satellite.acceleration.rotation;
-  //   const rotation = this.satellite.rotation - Math.PI;
-
-  //   const velocity = {
-  //     x: config.SATELLITE.POWER.ACCELERATION * Math.cos(rotation),
-  //     y: config.SATELLITE.POWER.ACCELERATION * Math.sin(rotation)
-  //   };
-    
-  //   this.satellite.setVelocity(velocity.x, velocity.y);
-  // }
-
   moveSatellite(iterations = 3) {
     if (this.satellite.isStatic()) return;
-    // if this.
-    // const rotation = this.satellite.rotation + Math.PI * 179/180;
-      
-    // const velocity = {
-    //   x: config.SATELLITE.POWER.DEFAULT * Math.cos(rotation),
-    //   y: config.SATELLITE.POWER.DEFAULT * Math.sin(rotation)
-    // };
-    
-    // this.satellite.setVelocity(velocity.x, velocity.y);
-
-    const { data } = this.state.satellite;
 
     let dx, dy, dl, dl3, dvx, dvy;
     
@@ -531,57 +353,6 @@ class Play extends Phaser.Scene {
   buildArrowEndPosition(pointer) {
     this.state.arrow.end.x = pointer.position.x;
     this.state.arrow.end.y = pointer.position.y;
-
-    // let { x, y } = pointer.position;
-
-    // let xH = x - this.satellite.x;
-    // let yH = y - this.satellite.y;
-    
-    // let a = Math.atan2(yH, xH);
-
-    // if (a > 0) {
-    //   a -= Math.PI * 2;
-    // };
-
-    // const minA = config.ARROW.ANGLE.MIN;
-    // const maxA = config.ARROW.ANGLE.MAX;
-    
-    // // Fix position if (a > min angle) or (a < max angle)
-    // if (a < minA) {
-    //   a = minA;
-
-    //   if (x > this.satellite.x) {
-    //     x = Math.cos(a) * config.ARROW.LENGTH.MIN + this.satellite.x;
-    //   }
-
-    //   y = (x - this.satellite.x) * Math.tan(a) + this.satellite.y;
-    // }
-    // else if (a > maxA) {
-    //   a = maxA;
-
-    //   if (y > this.satellite.y) {
-    //     y = Math.sin(a) * config.ARROW.LENGTH.MIN + this.satellite.y;
-    //   }
-
-    //   x = (y - this.satellite.y) / Math.tan(a) + this.satellite.x;
-    // }
-
-    // xH = x - this.satellite.x;
-    // yH = y - this.satellite.y;
-    
-    // // Get current distance between start and and of the arrow
-    // // Returns config.ARROW.LENGTH.MIN if distance between cursor and start of the arrow >= config.ARROW.LENGTH.MIN)
-    // const l = Math.max(
-    //   Math.sqrt( Math.pow(xH, 2) +  Math.pow(yH, 2) ),
-    //   config.ARROW.LENGTH.MIN
-    // );
-
-    // // Fix position depending on correct distance between start and and of the arrow
-    // x = Math.cos(a) * l + this.satellite.x;
-    // y = Math.sin(a) * l + this.satellite.y;
-
-    // this.state.arrow.end.x = x;
-    // this.state.arrow.end.y = y;
   }
 
   buildArrowCorner() {
@@ -663,8 +434,6 @@ class Play extends Phaser.Scene {
     this.parent.append(this.counter.view);
 
     this.buildCounter();
-    
-    // this.counter.status.height = this.counter.status.view.height() / 2;
   }
 
   resetCounter() {
@@ -677,9 +446,6 @@ class Play extends Phaser.Scene {
   buildCounter() {
     this.counter.status.height = this.counter.status.view.height() / 2;
 
-    // const duration = config.SATELLITE.ACCELERATION.DURATION / 1000;
-
-    // this.counter.status.inner.view.height({ height:  });
     this.counter.status.inner.view.height(
       (this.state.counter.switchers.value.available/config.SATELLITE.ACCELERATION.DURATION) * this.counter.status.height
     );
@@ -1009,13 +775,6 @@ class Play extends Phaser.Scene {
     this.buildSatelliteVelocity();
     this.buildOrbits();
 
-    // const { ACCELERATION } = config.SATELLITE;
-
-    // this.state.satellite.durations = {
-    //   start: duration * ACCELERATION.START.PART,
-    //   end: duration * ACCELERATION.END.PART,
-    // };
-
     this.running = true;
     this.completed = true;
 
@@ -1025,7 +784,6 @@ class Play extends Phaser.Scene {
 
     this.state.counter.switchers.value.available -= this.state.counter.switchers.value.chosen;
     this.state.counter.switchers.list.forEach( state => state.value = 0 );
-    // this.runner.satellite.rotation = this.state.satellite.rotation;
 
     this.satellite.setStatic(false);
 
@@ -1040,13 +798,7 @@ class Play extends Phaser.Scene {
   async stop() {
     this.running = false;
 
-    // this.state.planet.orbit.radius = Phaser.Math.Distance.Between(this.satellite.x, this.satellite.y, this.planet.x, this.planet.y);
-    // this.buildPlanet();
-    // this.state.counter.switchers.value.available -= this.state.counter.switchers.value.chosen;
-    // this.state.counter.switchers.list.forEach( state => state.value = 0 );
-
     await this.hideButton('run');
-
 
     if (this.state.counter.switchers.value.available > 0) {
       this.enableButton('ignit');
