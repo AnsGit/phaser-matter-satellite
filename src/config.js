@@ -10,7 +10,7 @@ const config = {
     ORBIT: {
       DEFAULT: { RADIUS: 56 },
       TARGET: { RADIUS: 216, SEGMENTS: 44, WIDTH: 40 },
-      CURRENT: { ENABLED: false },
+      CURRENT: { ENABLED: true },
       WIDTH: 1,
       COLOR: '0x82D2FF',
       OPACITY: 0.5
