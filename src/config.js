@@ -9,7 +9,8 @@ const config = {
     y: 256,
     ORBIT: {
       DEFAULT: { RADIUS: 56 },
-      TARGET: { RADIUS: 216, SEGMENTS: 44 },
+      TARGET: { RADIUS: 216, SEGMENTS: 44, WIDTH: 40 },
+      CURRENT: { ENABLED: false },
       WIDTH: 1,
       COLOR: '0x82D2FF',
       OPACITY: 0.5
@@ -18,8 +19,9 @@ const config = {
   SATELLITE: {
     WIDTH: 52,
     HEIGHT: 49,
+    MASS: 0.1,
     POSITION: { ROTATION: -Math.PI/2 },
-    V: { x: -0.5, y: 0 },
+    V: { x: -0.5, y: 0, k: 0.05 },
     POWER: {
       DEFAULT: 0.1,
       ACCELERATION: 1.3

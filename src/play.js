@@ -38,6 +38,7 @@ class Play extends Phaser.Scene {
     this.restore();
 
     this.createPlanet();
+    this.createOrbits();
     this.createSatellite();
     this.createArrow();
 
@@ -81,7 +82,7 @@ class Play extends Phaser.Scene {
       },
       arrow: {
         activated: false,
-        end: { x: 0, y: 0 }
+        end: { x: config.PLANET.x, y: config.PLANET.y }
       }
     };
 
@@ -115,17 +116,13 @@ class Play extends Phaser.Scene {
       }
     );
 
-    this.orbits = ['DEFAULT', 'TARGET'].map((type) => {
-      const { RADIUS } = config.PLANET.ORBIT[type];
-      return new Phaser.Geom.Circle(config.PLANET.x, config.PLANET.y, RADIUS);
-    });
-
     this.buildPlanet();
     // this.resetPlanet();
   }
 
   resetPlanet() {
     // this.state.planet.orbit.radius = config.PLANET.ORBIT.DEFAULT.RADIUS;
+    this.orbits[2] = [];
     this.buildPlanet();
   }
 
@@ -134,8 +131,150 @@ class Play extends Phaser.Scene {
     this.planet.setStatic(true);
   }
 
+  createOrbits() {
+    this.orbits = ['DEFAULT', 'TARGET', 'CURRENT'].map((type) => {
+      if (type === 'CURRENT') return [];
+
+      const { RADIUS } = config.PLANET.ORBIT[type];
+      return new Phaser.Geom.Circle(config.PLANET.x, config.PLANET.y, RADIUS);
+    });
+
+    this.buildOrbits();
+  }
+
+  resetOrbits() {
+    this.buildOrbits();
+  }
+
+  buildOrbits() {
+    if (!config.PLANET.ORBIT.CURRENT.ENABLED) return;
+
+    this.orbits[2] = [];
+
+    let { x, y, vx, vy } = this.state.satellite;
+    let dx, dy, dl, dl3, dvx, dvy;
+
+    let ex = config.PLANET.x;
+    let ey = config.PLANET.y;
+
+    let mu = this.runner.satellite.mu;
+
+    let i = 0;
+    let prevAngle = 0;
+    let currentAngle = 1;
+    let angleDiff = 0;
+
+    // return;
+    while (currentAngle > -Math.PI) {
+      prevAngle = currentAngle;
+
+      [x, y] = [x + vx / 2, y + vy / 2];
+      [dx, dy] = [ex - x, ey - y];
+      dl = Math.sqrt(Math.pow(dx, 2) + Math.pow(dy, 2));
+      dl3 = Math.pow(dl, 3);
+      [dvx, dvy] = [mu * dx / dl3, mu * dy / dl3];
+      [vx, vy] = [vx + dvx, vy + dvy];
+      [x, y] = [x + vx / 2, y + vy / 2];
+
+      // currentAngle = (Math.atan2(-dy, -dx) + Math.PI * 2) % Math.PI * 2;
+      // currentAngle = Math.atan2(-dy, -dx);
+
+      // console.log(parseInt(Math.atan2(-dy, -dx) * 180 / Math.PI));
+      // console.log(parseInt((currentAngle) * 180 / Math.PI));
+
+      // currentAngle = Math.atan2(-dy, -dx);
+
+      // if (currentAngle > 0) {
+      //   currentAngle -= Math.PI * 2;
+      // }
+
+      // currentAngle *= -1;
+
+      // const a = Math.atan2(-dy, -dx);
+      // console.log(parseInt((a) * 180 / Math.PI));
+
+      // if (a < 0) {
+      //   // currentAngle += Math.PI * 2;
+      //   console.log(parseInt((a + Math.PI * 2) * 180 / Math.PI));
+      // }
+      // else {
+      //   console.log(parseInt((a) * 180 / Math.PI));
+      // }
+
+
+      // console.log(parseInt((a) * 180 / Math.PI));
+
+      currentAngle = (Math.atan2(-dy, -dx) + Math.PI * 2) % Math.PI * 2;
+
+      if (i === 0) {
+        angleDiff = (Math.PI * 2 - currentAngle);
+      }
+      else {
+        if (currentAngle > prevAngle) {
+          currentAngle -= Math.PI * 2;
+        }
+      }
+      currentAngle += angleDiff;
+
+      console.log(parseInt(currentAngle * 180 / Math.PI));
+
+      // currentAngle = angleDiff - currentAngle;
+
+      if (i % 20 === 0) this.orbits[2].push({ x, y });
+      i++;
+    }
+
+    // console.log(this.orbits[2].length);
+
+    return;
+
+    for (let i = 0; i < 100000; i++) {
+      prevAngle = currentAngle;
+
+      [x, y] = [x + vx / 2, y + vy / 2];
+      [dx, dy] = [ex - x, ey - y];
+      dl = Math.sqrt(Math.pow(dx, 2) + Math.pow(dy, 2));
+      dl3 = Math.pow(dl, 3);
+      [dvx, dvy] = [mu * dx / dl3, mu * dy / dl3];
+      [vx, vy] = [vx + dvx, vy + dvy];
+      [x, y] = [x + vx / 2, y + vy / 2];
+
+      currentAngle = (Math.atan2(-dy, -dx) + Math.PI * 2) % Math.PI * 2;
+
+      if (i === 0) {
+        angleDiff = (Math.PI * 2 - currentAngle);
+        currentAngle += angleDiff;
+        // endAngle = currentAngle;
+      }
+      else {
+        if (currentAngle > prevAngle) {
+          currentAngle -= Math.PI * 2;
+        }
+        currentAngle += angleDiff;
+        
+      }
+      // currentAngle -= Math.PI * 2;
+      // console.log(parseInt(currentAngle * 180 / Math.PI));
+
+      // console.log(Math.abs((Math.atan2(-dy, -dx) + Math.PI * 2) % Math.PI * 2));
+      // console.log(
+      //   parseInt(
+      //     ((Math.atan2(-dy, -dx) + Math.PI * 2) % Math.PI * 2) * 180 / Math.PI
+      //   )
+      // );
+
+      if (i % 20 === 0) this.orbits[2].push({ x, y });
+    }
+  }
+
   createSatellite() {
-    this.satellite = this.matter.add.image(0, 0, 'satellite', null, { mass: 0.1 });
+    this.satellite = this.matter.add.image(
+      0, 0,
+      'satellite',
+      null,
+      { mass: config.SATELLITE.MASS }
+    );
+
     this.buildSatellite();
     // this.resetSatellite();
   }
@@ -204,13 +343,12 @@ class Play extends Phaser.Scene {
     const ex = this.state.arrow.end.x;
     const ey = this.state.arrow.end.y;
     
-    const step = 0.02;
     const duration = this.state.counter.switchers.value.chosen;
   
     const angle = Math.atan2(ey - this.state.satellite.y, ex - this.state.satellite.x);
     const [dvx, dvy] = [
-      Math.cos(angle) * step * duration,
-      Math.sin(angle) * step * duration
+      Math.cos(angle) * config.SATELLITE.V.k * duration,
+      Math.sin(angle) * config.SATELLITE.V.k * duration
     ];
 
     this.state.satellite.vx += dvx / 1000;
@@ -807,6 +945,7 @@ class Play extends Phaser.Scene {
 
     this.resetPlanet();
     this.resetSatellite();
+    this.resetOrbits();
     this.resetArrow();
     this.resetCounter();
     this.resetButtons();
@@ -868,6 +1007,7 @@ class Play extends Phaser.Scene {
     if (this.state.counter.switchers.value.chosen <= 0) return;
 
     this.buildSatelliteVelocity();
+    this.buildOrbits();
 
     // const { ACCELERATION } = config.SATELLITE;
 
@@ -916,7 +1056,11 @@ class Play extends Phaser.Scene {
   }
 
   subscribeSatellite() {
-    // ...
+    this.satellite.setOnCollide((data) => {
+      this.running = false;
+      this.satellite.setStatic(true);
+      this.disableButton('ignit');
+    });
   }
 
   subscribeButtons() {
@@ -994,26 +1138,43 @@ class Play extends Phaser.Scene {
     // this.graphics.closePath();
   }
 
-  drawOrbit(o, dashed = false) {
-    if (!dashed) {
-      this.graphics.beginPath();
-      this.graphics.arc(o.x, o.y, o.radius, 0, 2 * Math.PI);
-      this.graphics.closePath();
-      this.graphics.stroke();
+  drawOrbit(i) {
+    const o = this.orbits[i];
+
+    if (i < 2) {
+      if (i === 0) {
+        // Basic orbit
+        this.graphics.beginPath();
+        this.graphics.arc(o.x, o.y, o.radius, 0, 2 * Math.PI);
+        this.graphics.closePath();
+        this.graphics.stroke();
+      }
+      else {
+        // Target orbit
+        const maxAngle = Math.PI * 2;
+        const aDelta = maxAngle / (config.PLANET.ORBIT.TARGET.SEGMENTS * 2);
+  
+        let angle = 0;
+  
+        while (angle < maxAngle) {
+          this.graphics.beginPath();
+          this.graphics.arc(o.x, o.y, o.radius, angle, angle + aDelta);
+          this.graphics.stroke();
+  
+          angle += aDelta * 2;
+        }
+      }
     }
     else {
-      const maxAngle = Math.PI * 2;
-      const aDelta = maxAngle / (config.PLANET.ORBIT.TARGET.SEGMENTS * 2);
+      if (!config.PLANET.ORBIT.CURRENT.ENABLED) return;
 
-      let angle = 0;
+      // Current orbit
+      this.graphics.beginPath();
 
-      while (angle < maxAngle) {
-        this.graphics.beginPath();
-        this.graphics.arc(o.x, o.y, o.radius, angle, angle + aDelta);
-        this.graphics.stroke();
+      o.forEach(({ x, y }) => this.graphics.lineTo(x, y));
 
-        angle += aDelta * 2;
-      }
+      this.graphics.closePath();
+      this.graphics.stroke();
     }
   }
 
@@ -1021,7 +1182,7 @@ class Play extends Phaser.Scene {
     const { WIDTH, COLOR, OPACITY } = config.PLANET.ORBIT;
 
     this.graphics.lineStyle(WIDTH, COLOR, OPACITY);
-    this.orbits.forEach( (o, i) => this.drawOrbit(o, i === 1) );
+    this.orbits.forEach( (o, i) => this.drawOrbit(i) );
   }
 
   update(time, delta) {
