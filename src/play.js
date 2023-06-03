@@ -795,11 +795,11 @@ class Play extends Phaser.Scene {
 
     this.state.action = 1;
 
-    const step =  _.last(this.state.history);
+    // const step =  _.last(this.state.history);
 
-    ['x', 'y', 'vx', 'vy'].forEach((key) => {
-      step.satellite[key] = this.state.satellite[key];
-    });
+    // ['x', 'y', 'vx', 'vy'].forEach((key) => {
+    //   step.satellite[key] = this.state.satellite[key];
+    // });
   }
 
   subscribeArrow() {
