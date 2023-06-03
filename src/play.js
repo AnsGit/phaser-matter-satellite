@@ -166,7 +166,7 @@ class Play extends Phaser.Scene {
     return true;
   }
 
-  getCurrentOrbitPoints(step = 30, max = 10000) {
+  getCurrentOrbitPoints(step = 20, max = 5000) {
     let { x, y, vx, vy } = this.state.satellite;
     let dx, dy, dl, dl3, dvx, dvy;
 
@@ -175,17 +175,15 @@ class Play extends Phaser.Scene {
 
     let mu = this.runner.satellite.mu;
 
-    let i = 0;
-    let prevAngle = 0;
-    let currentAngle = 0;
-    let angleDiff = 0;
+    let started = false;
     let angle = 0;
+    let lastX, lastY;
+    let lastDx, lastDy;
+    let step2 = Math.pow(step, 2);
 
     const points = [];
 
     while (angle < Math.PI * 2) {
-      prevAngle = currentAngle;
-
       [x, y] = [x + vx / 2, y + vy / 2];
       [dx, dy] = [ex - x, ey - y];
       dl = Math.sqrt(Math.pow(dx, 2) + Math.pow(dy, 2));
@@ -194,26 +192,33 @@ class Play extends Phaser.Scene {
       [vx, vy] = [vx + dvx, vy + dvy];
       [x, y] = [x + vx / 2, y + vy / 2];
 
-      currentAngle = (Math.atan2(-dy, -dx) + Math.PI * 2) % (Math.PI * 2);
+      if (!started) {
+        started = true;
 
-      if (i === 0) {
-        angleDiff = (Math.PI * 2 - currentAngle);
-        currentAngle += angleDiff;
+        points.push({ x, y });
+
         angle = 0;
+
+        [lastX, lastY] = [x, y];
+        [lastDx, lastDy] = [dx, dy];
       }
       else {
-        if (currentAngle > prevAngle) {
-          currentAngle -= Math.PI * 2;
-        }
-        currentAngle += angleDiff;
-        angle += (prevAngle - currentAngle);
+        const d2 = Math.pow(x - lastX, 2) + Math.pow(y - lastY, 2);
+
+        if (d2 >= step2) {
+          points.push({ x, y });
+
+          angle += Math.abs(
+            Math.atan2( (lastDx*dy - lastDy*dx), (lastDx*dx + lastDy*dy) )
+          );
+          
+          [lastX, lastY] = [x, y];
+          [lastDx, lastDy] = [dx, dy];
+        }        
       }
 
-      if (i % step === 0) points.push({ x, y });
-      i++;
-
-      if (i > max) {
-        return false;
+      if (points.length > max) {
+        return points;
       }
     }
 
@@ -925,7 +930,7 @@ class Play extends Phaser.Scene {
 
       o.forEach(({ x, y }) => this.graphics.lineTo(x, y));
 
-      this.graphics.closePath();
+      // this.graphics.closePath();
       this.graphics.stroke();
     }
   }

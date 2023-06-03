@@ -1,5 +1,5 @@
 const config = {
-  LOCAL_STORAGE: false,
+  LOCAL_STORAGE: true,
   WIDTH: 1024,
   HEIGHT: 512,
   BACKGROUND_COLOR: '0x030B35',
