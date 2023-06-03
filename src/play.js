@@ -60,7 +60,7 @@ class Play extends Phaser.Scene {
     // delete window.localStorage['matter-satellite'];
     
     this.state = {
-      step: 0, // 0 - before ignit, 1 - before arrow activation, 2 - before counter changing, 3 - after running
+      action: 0, // 0 - before ignit, 1 - before arrow activation, 2 - before counter changing, 3 - after running
       satellite: {
         ...this.getSatelliteDefaultPosition(),
         vx: config.SATELLITE.V.x,
@@ -78,17 +78,46 @@ class Play extends Phaser.Scene {
       arrow: {
         activated: false,
         end: { x: config.PLANET.x, y: config.PLANET.y }
-      }
+      },
+      history: []
     };
+
+    this.saveStateToHistory();
 
     if (!config.LOCAL_STORAGE) return;
     if (!window.localStorage['matter-satellite']) return;
 
     this.state = $.extend(
-      true,
+      false,
       this.state,
       JSON.parse(window.localStorage['matter-satellite'])
     );
+  }
+
+  // Save new step
+  saveStateToHistory() {
+    const { satellite, counter, arrow } = this.state;
+
+    this.state.history.push(
+      $.extend(true, {}, { satellite, counter, arrow })
+    );
+  }
+
+  // Go to previous step
+  restorePreviousStateFromHistory() {
+    if (this.state.history.length === 1) return;
+
+    this.state.history.pop();
+    this.restoreCurrentStateFromHistory();
+  }
+
+  // Go to initial state of current step
+  restoreCurrentStateFromHistory() {
+    const step = _.last(this.state.history);
+
+    ['satellite', 'counter', 'arrow'].forEach((key) => {
+      this.state[key] = $.extend(true, {}, step[key]);  
+    });
   }
 
   build() {
@@ -114,7 +143,6 @@ class Play extends Phaser.Scene {
   }
 
   resetPlanet() {
-    this.orbits[2] = [];
     this.buildPlanet();
   }
 
@@ -166,7 +194,7 @@ class Play extends Phaser.Scene {
     return true;
   }
 
-  getCurrentOrbitPoints(step = 30, max = 10000) {
+  getCurrentOrbitPoints(step = 20, max = 5000) {
     let { x, y, vx, vy } = this.state.satellite;
     let dx, dy, dl, dl3, dvx, dvy;
 
@@ -175,17 +203,15 @@ class Play extends Phaser.Scene {
 
     let mu = this.runner.satellite.mu;
 
-    let i = 0;
-    let prevAngle = 0;
-    let currentAngle = 0;
-    let angleDiff = 0;
+    let started = false;
     let angle = 0;
+    let lastX, lastY;
+    let lastDx, lastDy;
+    let step2 = Math.pow(step, 2);
 
     const points = [];
 
     while (angle < Math.PI * 2) {
-      prevAngle = currentAngle;
-
       [x, y] = [x + vx / 2, y + vy / 2];
       [dx, dy] = [ex - x, ey - y];
       dl = Math.sqrt(Math.pow(dx, 2) + Math.pow(dy, 2));
@@ -194,26 +220,33 @@ class Play extends Phaser.Scene {
       [vx, vy] = [vx + dvx, vy + dvy];
       [x, y] = [x + vx / 2, y + vy / 2];
 
-      currentAngle = (Math.atan2(-dy, -dx) + Math.PI * 2) % (Math.PI * 2);
+      if (!started) {
+        started = true;
 
-      if (i === 0) {
-        angleDiff = (Math.PI * 2 - currentAngle);
-        currentAngle += angleDiff;
+        points.push({ x, y });
+
         angle = 0;
+
+        [lastX, lastY] = [x, y];
+        [lastDx, lastDy] = [dx, dy];
       }
       else {
-        if (currentAngle > prevAngle) {
-          currentAngle -= Math.PI * 2;
-        }
-        currentAngle += angleDiff;
-        angle += (prevAngle - currentAngle);
+        const d2 = Math.pow(x - lastX, 2) + Math.pow(y - lastY, 2);
+
+        if (d2 >= step2) {
+          points.push({ x, y });
+
+          angle += Math.abs(
+            Math.atan2( (lastDx*dy - lastDy*dx), (lastDx*dx + lastDy*dy) )
+          );
+          
+          [lastX, lastY] = [x, y];
+          [lastDx, lastDy] = [dx, dy];
+        }        
       }
 
-      if (i % step === 0) points.push({ x, y });
-      i++;
-
-      if (i > max) {
-        return false;
+      if (points.length > max) {
+        return points;
       }
     }
 
@@ -247,14 +280,13 @@ class Play extends Phaser.Scene {
   buildSatellite() {
     this.buildSatellitePosition();
 
-
     this.satellite.setFriction(0);
     this.satellite.setFrictionAir(0);
 
-    if ([1, 2].includes(this.state.step)) {
+    if ([1, 2].includes(this.state.action)) {
       this.satellite.setStatic(true);
 
-      if (this.state.step === 2) {
+      if (this.state.action === 2) {
         this.buildSatelliteRotation(this.state.arrow.end.x, this.state.arrow.end.y);
       }
     }
@@ -341,10 +373,10 @@ class Play extends Phaser.Scene {
   buildArrow() {
     this.buildArrowCorner();
 
-    if ([1, 2].includes(this.state.step)) {
+    if ([1, 2].includes(this.state.action)) {
       this.subscribeArrow();
 
-      if (this.state.step === 2) {
+      if (this.state.action === 2) {
         this.activateArrow(true);
       }
     }
@@ -458,11 +490,11 @@ class Play extends Phaser.Scene {
       s.value.text(this.state.counter.switchers.list[i].value);
     });
     
-    if ([0, 1, 3].includes(this.state.step)) {
+    if ([0, 1, 3].includes(this.state.action)) {
       // this.hideCounterSwitchers();
       this.disableCounter();
 
-      if (this.state.step === 0) {
+      if (this.state.action === 0 && this.state.history.length === 1) {
         this.hideCounterSwitchers();
       }
     }
@@ -606,12 +638,17 @@ class Play extends Phaser.Scene {
   }
 
   buildButtons() {
-    switch (this.state.step) {
+    switch (this.state.action) {
       case 0: {
-        this.disableButton('reset');
+        if (this.state.history.length === 1) {
+          this.disableButton('reset');
+        }
 
         this.disableButton('run');
         this.hideButton('run');
+
+        this.enableButton('ignit');
+        this.showButton('ignit');
         break;
       }
       case 1: {
@@ -658,7 +695,7 @@ class Play extends Phaser.Scene {
 
     button.view.toggleClass('hidden', !toShow);
     
-    return new Promise( resolve => button.view.on('transitionend', resolve) );
+    // return new Promise( resolve => button.view.on('transitionend', resolve) );
   }
 
   disableButton(type) {
@@ -704,10 +741,14 @@ class Play extends Phaser.Scene {
     // this.updateSatelliteRotation(this.running, delta);
   }
 
-  reset(props = {}) {
+  reset() {
+    while(this.state.history.length > 1) {
+      this.restoreStateFromHistory();
+    }
+
     this.running = false;
     this.completed = false;
-    this.state.step = 0;
+    this.state.action = 0;
 
     this.resetPlanet();
     this.resetSatellite();
@@ -717,16 +758,48 @@ class Play extends Phaser.Scene {
     this.resetButtons();
   }
 
+  undo() {
+    if ([0, 3].includes(this.state.action)) {
+      this.restorePreviousStateFromHistory();
+    }
+    else {
+      this.restoreCurrentStateFromHistory();
+    }
+
+    this.running = false;
+    this.completed = false;
+    this.state.action = 0;
+
+    this.buildPlanet();
+
+    this.satellite.setStatic(false);
+    this.buildSatellite();
+
+    this.buildOrbits();
+
+    this.destroyArrow();
+    this.buildArrow();
+
+    this.buildCounter();
+    this.buildButtons();
+  }
+
   async ignit() {
     this.satellite.setStatic(true);
 
-    await this.hideButton('ignit');
+    this.hideButton('ignit');
     this.disableButton('ignit');
     
     this.enableButton('reset');
-    await this.showButton('run');
+    this.showButton('run');
 
-    this.state.step = 1;
+    this.state.action = 1;
+
+    // const step =  _.last(this.state.history);
+
+    // ['x', 'y', 'vx', 'vy'].forEach((key) => {
+    //   step.satellite[key] = this.state.satellite[key];
+    // });
   }
 
   subscribeArrow() {
@@ -745,11 +818,8 @@ class Play extends Phaser.Scene {
 
       const onPointerUp = ((pointer) => {
         onPointerEvent(pointer);
-        
-        // this.buildSatelliteAcceleration();
-        // this.buildSatelliteVelocity();
 
-        this.state.step = 2;
+        this.state.action = 2;
         this.store();
 
         this.showCounterSwitchers();
@@ -778,33 +848,35 @@ class Play extends Phaser.Scene {
     this.running = true;
     this.completed = true;
 
-    this.state.step = 3;
+    this.state.action = 3;
 
     this.runner.timestamp = 0;
 
     this.state.counter.switchers.value.available -= this.state.counter.switchers.value.chosen;
     this.state.counter.switchers.list.forEach( state => state.value = 0 );
-
+    
     this.satellite.setStatic(false);
-
+    
     this.destroyArrow();
-
+    
     this.disableButton('run');
     // this.enableButton('reset');
-
+    
     this.disableCounter();
+
+    this.saveStateToHistory();
   }
 
   async stop() {
     this.running = false;
 
-    await this.hideButton('run');
+    this.hideButton('run');
 
     if (this.state.counter.switchers.value.available > 0) {
       this.enableButton('ignit');
     }
     
-    await this.showButton('ignit');
+    this.showButton('ignit');
   }
 
   subscribeSatellite() {
@@ -820,7 +892,8 @@ class Play extends Phaser.Scene {
     this.buttons.reset.view.on('click', (e) => {
       // console.log('RESETED');
 
-      this.reset();
+      // this.reset();
+      this.undo();
       this.store();
     });
 
@@ -828,7 +901,7 @@ class Play extends Phaser.Scene {
     this.buttons.ignit.view.on('click', async (e) => {
       // console.log('IGNITED');
 
-      await this.ignit();
+      this.ignit();
       this.store();
       
       this.subscribeArrow();
@@ -925,7 +998,7 @@ class Play extends Phaser.Scene {
 
       o.forEach(({ x, y }) => this.graphics.lineTo(x, y));
 
-      this.graphics.closePath();
+      // this.graphics.closePath();
       this.graphics.stroke();
     }
   }
