@@ -257,8 +257,7 @@ class Play extends Phaser.Scene {
     this.satellite = this.matter.add.image(
       0, 0,
       'satellite',
-      null,
-      { mass: config.SATELLITE.MASS }
+      null
     );
 
     this.buildSatellite();
