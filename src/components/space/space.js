@@ -25,7 +25,7 @@ class Space {
     this.view = $('<div>', { class: 'space' });
   }
 
-  _initGame(state = {}) {
+  _initGame(state = {}, cb = () => {}) {
     this.game = new Phaser.Game({
       type: Phaser.AUTO,
       width: config.WIDTH,
@@ -40,20 +40,29 @@ class Space {
           }
         },
       },
-      scene: [Scene]
+      scene: [Scene],
+      callbacks: { postBoot: cb },
     });
 
     this.game.state = $.extend(false, {}, state);
   }
 
   getState() {
-    this.state = game.scene.scenes[0].getState();
+    this.state = this.game.scene.scenes[0].getState();
 
     return this.state;
   }
 
   build(state = {}) {
-    this._initGame(state);
+    return new Promise( resolve => this._initGame(state, resolve) )
+  }
+
+  subscribe() {
+    this.game.scene.scenes[0].subscribe();
+  }
+  
+  unsubscribe() {
+    this.game.scene.scenes[0].unsubscribe();
   }
 }
 

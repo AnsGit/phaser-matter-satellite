@@ -47,7 +47,6 @@ class Scene extends Phaser.Scene {
     this.createButtons();
 
     this.build();
-    this.subscribe();
   }
 
   store() {
@@ -823,9 +822,13 @@ class Scene extends Phaser.Scene {
     });
   }
 
+  unsubscribeArrow() {
+    this.input.removeAllListeners();
+  }
+
   destroyArrow() {
     this.activateArrow(false);
-    this.input.removeAllListeners();
+    this.unsubscribeArrow();
   }
 
   run() {
@@ -869,11 +872,15 @@ class Scene extends Phaser.Scene {
   }
 
   subscribeSatellite() {
-    this.satellite.setOnCollide((data) => {
+    this.satellite.on('collide', (data) => {
       this.running = false;
       this.satellite.setStatic(true);
       this.disableButton('ignit');
     });
+  }
+
+  unsubscribeSatellite() {
+    // this.satellite.off('collide');
   }
 
   subscribeButtons() {
@@ -905,6 +912,12 @@ class Scene extends Phaser.Scene {
     });
   }
 
+  unsubscribeButtons() {
+    this.buttons.reset.view.off('click');
+    this.buttons.ignit.view.off('click');
+    this.buttons.run.view.off('click');
+  }
+
   subscribeCounter() {
     this.counter.switchers.list.forEach((s) => {
       s.buttons.forEach((b) => {
@@ -916,10 +929,26 @@ class Scene extends Phaser.Scene {
     })
   }
 
+  unsubscribeCounter() {
+    this.counter.switchers.list.forEach((s) => {
+      s.buttons.forEach((b) => {
+        b.off('click');
+      })
+    })
+  }
+
   subscribe() {
     this.subscribeSatellite();
+    this.subscribeArrow();
     this.subscribeButtons();
     this.subscribeCounter();
+  }
+
+  unsubscribe() {
+    this.unsubscribeSatellite();
+    this.unsubscribeArrow();
+    this.unsubscribeButtons();
+    this.unsubscribeCounter();
   }
 
   draw() {
@@ -1017,6 +1046,11 @@ class Scene extends Phaser.Scene {
 
   enable() {
     this.parent.removeClass('disabled');
+  }
+
+  destroy() {
+    this.unsubscribe();
+    this.satellite.setStatic(true);
   }
 }
 

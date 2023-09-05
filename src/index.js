@@ -9,4 +9,10 @@ const space = new Space();
 
 $('body').append( space.view );
 
-space.build(state);
+(async () => {
+  await space.build(state);
+  setTimeout(() => {
+    space.subscribe();
+  }, 100);
+})();
+
