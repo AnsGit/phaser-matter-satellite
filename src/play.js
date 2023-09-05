@@ -279,9 +279,6 @@ class Play extends Phaser.Scene {
   buildSatellite() {
     this.buildSatellitePosition();
 
-    this.satellite.setFriction(0);
-    this.satellite.setFrictionAir(0);
-
     if ([1, 2].includes(this.state.action)) {
       this.satellite.setStatic(true);
 
@@ -793,6 +790,8 @@ class Play extends Phaser.Scene {
     this.showButton('run');
 
     this.state.action = 1;
+
+    this.state.counter.switchers.value.chosen = 0;
 
     // const step =  _.last(this.state.history);
 
