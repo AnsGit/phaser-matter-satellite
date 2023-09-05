@@ -1,16 +1,16 @@
-// import Phaser from "phaser";
-import Phaser from "./phaser.js";
-import _, { times } from "underscore";
+import Phaser from "phaser";
+
+import _ from "underscore";
 import $ from "jquery";
 
 import config from "./config.js";
 
-class Play extends Phaser.Scene {
+class Scene extends Phaser.Scene {
   graphics;
 
   preload() {
-    this.load.image("planet", require("../assets/planet.png"), config.PLANET.RADIUS * 2, config.PLANET.RADIUS * 2);
-    this.load.image("satellite", require("../assets/satellite.png"), config.SATELLITE.WIDTH, config.SATELLITE.HEIGHT);
+    this.load.image("planet", require("./assets/planet.png"), config.PLANET.RADIUS * 2, config.PLANET.RADIUS * 2);
+    this.load.image("satellite", require("./assets/satellite.png"), config.SATELLITE.WIDTH, config.SATELLITE.HEIGHT);
   }
 
   _preset() {
@@ -20,7 +20,7 @@ class Play extends Phaser.Scene {
   create() {
     this._preset();
 
-    this.parent = $(`#${this.registry.parent.config.parent}`);
+    this.parent = $(this.registry.parent.config.parent);
 
     this.matter.world.autoUpdate = false;
     this.graphics = this.add.graphics();
@@ -51,14 +51,12 @@ class Play extends Phaser.Scene {
   }
 
   store() {
-    if (!config.LOCAL_STORAGE) return;
+    // if (!config.LOCAL_STORAGE) return;
 
     window.localStorage['matter-satellite'] = JSON.stringify(this.state);
   }
 
   restore() {
-    // delete window.localStorage['matter-satellite'];
-    
     this.state = {
       action: 0, // 0 - before ignit, 1 - before arrow activation, 2 - before counter changing, 3 - after running
       satellite: {
@@ -84,14 +82,7 @@ class Play extends Phaser.Scene {
 
     this.saveStateToHistory();
 
-    if (!config.LOCAL_STORAGE) return;
-    if (!window.localStorage['matter-satellite']) return;
-
-    this.state = $.extend(
-      false,
-      this.state,
-      JSON.parse(window.localStorage['matter-satellite'])
-    );
+    this.state = $.extend(false, this.state, this.game.state);
   }
 
   // Save new step
@@ -1016,6 +1007,10 @@ class Play extends Phaser.Scene {
     this.matter.world.step(delta);
   }
 
+  getState() {
+    return this.state;
+  }
+
   disable() {
     this.parent.addClass('disabled');
   }
@@ -1025,4 +1020,4 @@ class Play extends Phaser.Scene {
   }
 }
 
-export default Play;
+export default Scene;

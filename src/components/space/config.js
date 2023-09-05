@@ -1,5 +1,4 @@
 const config = {
-  LOCAL_STORAGE: true,
   WIDTH: 1024,
   HEIGHT: 512,
   BACKGROUND_COLOR: '0x030B35',
@@ -9,6 +8,7 @@ const config = {
     y: 256,
     ORBIT: {
       DEFAULT: { RADIUS: 56 },
+      // DEFAULT: { RADIUS: 196 },
       TARGET: { RADIUS: 216, SEGMENTS: 44, WIDTH: 50 },
       CURRENT: { ENABLED: true },
       WIDTH: 1,
