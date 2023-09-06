@@ -15,7 +15,6 @@ class Space {
   _initProps(props = {}) {
     this._defaultProps = {
       class: 'space',
-      // ...
     };
 
     this.props = $.extend(true, {}, this._defaultProps, props);
@@ -57,12 +56,12 @@ class Space {
     return new Promise( resolve => this._initGame(state, resolve) )
   }
 
-  subscribe() {
-    this.game.scene.scenes[0].subscribe();
+  subscribe(props = {}) {
+    return this.game.scene.scenes[0].subscribe(props);
   }
   
   unsubscribe() {
-    this.game.scene.scenes[0].unsubscribe();
+    return this.game.scene.scenes[0].unsubscribe();
   }
 }
 

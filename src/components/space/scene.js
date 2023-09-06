@@ -35,6 +35,8 @@ class Scene extends Phaser.Scene {
       }
     };
 
+    this.resetCallback();
+
     this.restore();
 
     this.createPlanet();
@@ -47,12 +49,6 @@ class Scene extends Phaser.Scene {
     this.createButtons();
 
     this.build();
-  }
-
-  store() {
-    // if (!config.LOCAL_STORAGE) return;
-
-    window.localStorage['matter-satellite'] = JSON.stringify(this.state);
   }
 
   restore() {
@@ -108,6 +104,13 @@ class Scene extends Phaser.Scene {
     ['satellite', 'counter', 'arrow'].forEach((key) => {
       this.state[key] = $.extend(true, {}, step[key]);  
     });
+  }
+
+  resetCallback() {
+    this._cb = {
+      onDown: () => {},
+      onComplete: async (result) => {},
+    };
   }
 
   build() {
@@ -359,12 +362,8 @@ class Scene extends Phaser.Scene {
   buildArrow() {
     this.buildArrowCorner();
 
-    if ([1, 2].includes(this.state.action)) {
-      this.subscribeArrow();
-
-      if (this.state.action === 2) {
-        this.activateArrow(true);
-      }
+    if (this.state.action === 2) {
+      this.activateArrow(true);
     }
   }
 
@@ -391,7 +390,6 @@ class Scene extends Phaser.Scene {
 
   activateArrow(toActivate = true) {
     this.state.arrow.activated = toActivate;
-    this.store();
   }
 
   createTitle() {
@@ -799,22 +797,24 @@ class Scene extends Phaser.Scene {
     }
 
     this.input.on('pointerdown', (pointer) => {
+      this._cb.onDown({ action: 'arrow' });
+
       this.activateArrow(true);
       onPointerEvent(pointer);
 
       this.input.on('pointermove', onPointerEvent);
 
-      const onPointerUp = ((pointer) => {
+      const onPointerUp = (async (pointer) => {
         onPointerEvent(pointer);
 
         this.state.action = 2;
-        this.store();
 
         this.showCounterSwitchers();
         this.enableCounter();
 
-        this.input.removeAllListeners();
-        this.subscribeArrow();
+        this.unsubscribeArrow();
+
+        await this._cb.onComplete({ action: 'arrow' });
       });
       
       this.input.on('pointerup', onPointerUp);
@@ -885,45 +885,52 @@ class Scene extends Phaser.Scene {
 
   subscribeButtons() {
     // RESET SLOPE AND BALL
-    this.buttons.reset.view.on('click', (e) => {
+    this.buttons.reset.view.on('pointerdown', async (e) => {
+      this._cb.onDown({ action: 'undo' });
       // console.log('RESETED');
-
+      
       // this.reset();
       this.undo();
-      this.store();
+
+      await this._cb.onComplete({ action: 'undo' });
     });
 
     // IGNIT SATELLITE ENGINE
-    this.buttons.ignit.view.on('click', async (e) => {
+    this.buttons.ignit.view.on('pointerdown', async (e) => {
+      this._cb.onDown({ action: 'ignit' });
       // console.log('IGNITED');
-
-      this.ignit();
-      this.store();
       
-      this.subscribeArrow();
+      this.ignit();
+
+      await this._cb.onComplete({ action: 'ignit' });
     });
 
     // RUN SATELLITE
-    this.buttons.run.view.on('click', (e) => {
+    this.buttons.run.view.on('pointerdown', async (e) => {
+      this._cb.onDown({ action: 'run' });
       // console.log('STARTED');
-
+      
       this.run();
-      this.store();
+
+      await this._cb.onComplete({ action: 'run' });
     });
   }
 
   unsubscribeButtons() {
-    this.buttons.reset.view.off('click');
-    this.buttons.ignit.view.off('click');
-    this.buttons.run.view.off('click');
+    this.buttons.reset.view.off('pointerdown');
+    this.buttons.ignit.view.off('pointerdown');
+    this.buttons.run.view.off('pointerdown');
   }
 
   subscribeCounter() {
     this.counter.switchers.list.forEach((s) => {
       s.buttons.forEach((b) => {
-        b.on('click', (e) => {
+        b.on('pointerdown', async (e) => {
+          this._cb.onDown({ action: 'switcher' });
+          
           this.toggleCounter(b);
-          this.store();
+          
+          await this._cb.onComplete({ action: 'switcher' });
         });
       })
     })
@@ -932,16 +939,31 @@ class Scene extends Phaser.Scene {
   unsubscribeCounter() {
     this.counter.switchers.list.forEach((s) => {
       s.buttons.forEach((b) => {
-        b.off('click');
+        b.off('pointerdown');
       })
     })
   }
 
-  subscribe() {
-    this.subscribeSatellite();
-    this.subscribeArrow();
-    this.subscribeButtons();
-    this.subscribeCounter();
+  subscribe(props = {}) {
+    props = {
+      onDown: () => {},
+      onComplete: async (result) => {},
+      ...props
+    };
+
+    return new Promise((resolve) => {
+      this._cb.onDown = props.onDown;
+
+      this._cb.onComplete = async (result) => {
+        await props.onComplete(result);
+        resolve();
+      };
+
+      this.subscribeSatellite();
+      [1, 2].includes(this.state.action) && this.subscribeArrow();
+      this.subscribeButtons();
+      this.subscribeCounter();
+    });
   }
 
   unsubscribe() {
