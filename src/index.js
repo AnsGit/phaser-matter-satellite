@@ -4,6 +4,9 @@ import $ from "jquery";
 import Space from "./components/space/space.js";
 
 const restore = () => {
+  if (!window.localStorage['matter-satellite']) return {};
+
+  return {};
   return JSON.parse(window.localStorage['matter-satellite']);
 }
 
@@ -19,7 +22,11 @@ $('body').append( space.view );
 
 (async () => {
   await space.build(state);
-  setTimeout(() => {
+  setTimeout(async() => {
+
+    await space.scene.changeOrbit(0, { radius: 56, gap: 0, duration: 3000 });
+    await space.scene.changeOrbit(0, { radius: 100, gap: 1, duration: 3000 });
+
     const onUpdate = () => {
       store(space.getState());
     }

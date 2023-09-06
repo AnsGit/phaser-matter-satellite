@@ -25,19 +25,22 @@ class Scene extends Phaser.Scene {
     this.matter.world.autoUpdate = false;
     this.graphics = this.add.graphics();
 
+    this.restore();
+
     const { V } = config.SATELLITE;
 
     this.runner = {
       timestamp: 0,
       satellite: {
         rotation: null,
-        mu: (Math.pow(V.x, 2) + Math.pow(V.y, 2)) * config.PLANET.ORBIT.DEFAULT.RADIUS
+        mu: (Math.pow(V.x, 2) + Math.pow(V.y, 2)) * this.state.planet.orbits[0].radius
       }
     };
 
-    this.resetCallback();
-
-    this.restore();
+    this._cb = {
+      onDown: () => {},
+      onComplete: async (result) => {},
+    };
 
     this.createPlanet();
     this.createOrbits();
@@ -58,6 +61,14 @@ class Scene extends Phaser.Scene {
         ...this.getSatelliteDefaultPosition(),
         vx: config.SATELLITE.V.x,
         vy: config.SATELLITE.V.y
+      },
+      planet: {
+        orbits: ['DEFAULT', 'TARGET', 'CURRENT'].map((type) => {
+          if (type === 'CURRENT') return {};
+
+          const { RADIUS, DASHED } = config.PLANET.ORBIT[type];
+          return { radius: RADIUS, dashed: DASHED, gap: 1 };
+        })
       },
       counter: {
         switchers: {
@@ -106,13 +117,6 @@ class Scene extends Phaser.Scene {
     });
   }
 
-  resetCallback() {
-    this._cb = {
-      onDown: () => {},
-      onComplete: async (result) => {},
-    };
-  }
-
   build() {
     // ...
   }
@@ -144,11 +148,11 @@ class Scene extends Phaser.Scene {
   }
 
   createOrbits() {
-    this.orbits = ['DEFAULT', 'TARGET', 'CURRENT'].map((type) => {
+    this.orbits = ['DEFAULT', 'TARGET', 'CURRENT'].map((type, i) => {
       if (type === 'CURRENT') return [];
 
-      const { RADIUS } = config.PLANET.ORBIT[type];
-      return new Phaser.Geom.Circle(config.PLANET.x, config.PLANET.y, RADIUS);
+      const radius = this.state.planet.orbits[i];
+      return new Phaser.Geom.Circle(config.PLANET.x, config.PLANET.y, radius);
     });
 
     this.buildOrbits();
@@ -171,8 +175,10 @@ class Scene extends Phaser.Scene {
 
     if (!points) return false;
 
-    const maxD = config.PLANET.ORBIT.TARGET.RADIUS + config.PLANET.ORBIT.TARGET.WIDTH/2;
-    const minD = config.PLANET.ORBIT.TARGET.RADIUS - config.PLANET.ORBIT.TARGET.WIDTH/2;
+    const { radius } = this.state.planet.orbits[1];
+
+    const maxD = radius + config.PLANET.ORBIT.TARGET.WIDTH/2;
+    const minD = radius - config.PLANET.ORBIT.TARGET.WIDTH/2;
 
     for(let i = 0; i < points.length; i++) {
       const { x, y } = points[i];
@@ -1005,33 +1011,39 @@ class Scene extends Phaser.Scene {
 
   drawOrbit(i) {
     const o = this.orbits[i];
+    
+    const oType = ['DEFAULT', 'TARGET', 'CURRENT'][i];
+    const oConfig = config.PLANET.ORBIT[oType];
 
     if (i < 2) {
-      if (i === 0) {
-        // Basic orbit
+      const { dashed, radius, gap } = this.state.planet.orbits[i];
+
+      if (!dashed) {
         this.graphics.beginPath();
-        this.graphics.arc(o.x, o.y, o.radius, 0, 2 * Math.PI);
+        this.graphics.arc(o.x, o.y, radius, 0, 2 * Math.PI);
         this.graphics.closePath();
         this.graphics.stroke();
       }
       else {
-        // Target orbit
-        const maxAngle = Math.PI * 2;
-        const aDelta = maxAngle / (config.PLANET.ORBIT.TARGET.SEGMENTS * 2);
+        const maxAngle = (Math.PI * 2);
+
+        const aStep = maxAngle / (oConfig.SEGMENTS * 2);
+        const gSize = aStep/2 * gap;
+        const aSize = aStep - gSize;
   
         let angle = 0;
   
         while (angle < maxAngle) {
           this.graphics.beginPath();
-          this.graphics.arc(o.x, o.y, o.radius, angle, angle + aDelta);
+          this.graphics.arc(o.x, o.y, radius, angle, angle + aSize);
           this.graphics.stroke();
   
-          angle += aDelta * 2;
+          angle += aStep;
         }
       }
     }
     else {
-      if (!config.PLANET.ORBIT.CURRENT.ENABLED) return;
+      if (!oConfig.ENABLED) return;
 
       // Current orbit
       this.graphics.beginPath();
@@ -1041,6 +1053,49 @@ class Scene extends Phaser.Scene {
       // this.graphics.closePath();
       this.graphics.stroke();
     }
+  }
+
+  async changeOrbit(i, props = {}) {
+    if (i === 2) return;
+
+    const { radius, gap, dashed } = this.state.planet.orbits[i];
+
+    props = {
+      radius, gap,
+      onStart: (...args) => {},
+      onUpdate: (...args) => {},
+      onComplete: (...args) => {},
+      duration: 500,
+      toWait: true,
+      ...props
+    };
+
+    if (!dashed && props.gap !== 0) {
+      this.state.planet.orbits[i].dashed = true;
+    }
+
+    await new Promise((resolve) => {
+      if (!props.toWait) {
+        this.state.planet.orbits[i].radius = radius;
+        this.state.planet.orbits[i].gap = gap;
+        resolve();
+      }
+      
+      this.tweens.add({
+        targets: this.state.planet.orbits[i],
+        radius: props.radius,
+        gap: props.gap,
+        duration: props.duration,
+        onStart: props.onStart,
+        onUpdate: props.onUpdate,
+        onComplete: (...args) => {
+          props.onComplete(...args);
+          resolve();
+        }
+      });
+    });
+
+    this.state.planet.orbits[i].dashed = (this.state.planet.orbits[i].gap !== 0);
   }
 
   drawOrbits() {

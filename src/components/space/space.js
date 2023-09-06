@@ -47,7 +47,7 @@ class Space {
   }
 
   getState() {
-    this.state = this.game.scene.scenes[0].getState();
+    this.state = this.scene.getState();
 
     return this.state;
   }
@@ -57,11 +57,15 @@ class Space {
   }
 
   subscribe(props = {}) {
-    return this.game.scene.scenes[0].subscribe(props);
+    return this.scene.subscribe(props);
   }
   
   unsubscribe() {
-    return this.game.scene.scenes[0].unsubscribe();
+    return this.scene.unsubscribe();
+  }
+
+  get scene() {
+    return this.game.scene.scenes[0];
   }
 }
 

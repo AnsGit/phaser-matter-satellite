@@ -7,9 +7,9 @@ const config = {
     x: 512,
     y: 256,
     ORBIT: {
-      DEFAULT: { RADIUS: 56 },
-      // DEFAULT: { RADIUS: 196 },
-      TARGET: { RADIUS: 216, SEGMENTS: 44, WIDTH: 50 },
+      // DEFAULT: { RADIUS: 56, SEGMENTS: 44, DASHED: false },
+      DEFAULT: { RADIUS: 196, SEGMENTS: 44, DASHED: true },
+      TARGET: { RADIUS: 216, SEGMENTS: 44, DASHED: true, WIDTH: 50 },
       CURRENT: { ENABLED: true },
       WIDTH: 1,
       COLOR: '0x82D2FF',
@@ -23,7 +23,7 @@ const config = {
     POSITION: { ROTATION: -Math.PI/2 },
     V: { x: -0.5, y: 0, k: 0.05 },
     ACCELERATION: {
-      DURATION: 9000,
+      DURATION: 4600,
     }
   },
   ARROW: {
