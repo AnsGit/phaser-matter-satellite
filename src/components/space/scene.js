@@ -1108,7 +1108,7 @@ class Scene extends Phaser.Scene {
     this.matter.world.step(delta);
   }
 
-  async change(targets, styles = {}, props = {}) {
+  async change(target, styles = {}, props = {}) {
     props = {
       onStart: (...args) => {},
       onUpdate: (...args) => {},
@@ -1120,15 +1120,15 @@ class Scene extends Phaser.Scene {
 
     await new Promise((resolve) => {
       if (!props.toWait) {
-        for (key of styles) {
-          this.state.planet.orbits[i][key] = styles[key];
+        for (let key in styles) {
+          target[key] = styles[key];
         }
         resolve();
         return;
       }
 
       this.tweens.add({
-        targets,
+        targets: target,
         ...styles,
         duration: props.duration,
         onStart: props.onStart,
