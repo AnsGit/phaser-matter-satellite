@@ -26,16 +26,8 @@ class Scene extends Phaser.Scene {
     this.graphics = this.add.graphics();
 
     this.restore();
-
-    const { V } = config.SATELLITE;
-
-    this.runner = {
-      timestamp: 0,
-      satellite: {
-        rotation: null,
-        mu: (Math.pow(V.x, 2) + Math.pow(V.y, 2)) * this.state.planet.orbits[0].radius
-      }
-    };
+    
+    this.resetRunner();
 
     this._cb = {
       onDown: () => {},
@@ -64,10 +56,10 @@ class Scene extends Phaser.Scene {
       },
       planet: {
         orbits: ['DEFAULT', 'TARGET', 'CURRENT'].map((type) => {
-          if (type === 'CURRENT') return {};
+          if (type === 'CURRENT') return { opacity: 1 };
 
           const { RADIUS, DASHED } = config.PLANET.ORBIT[type];
-          return { radius: RADIUS, dashed: DASHED, gap: 1 };
+          return { radius: RADIUS, dashed: DASHED, gap: 1, opacity: 1 };
         })
       },
       counter: {
@@ -119,6 +111,18 @@ class Scene extends Phaser.Scene {
 
   build() {
     // ...
+  }
+
+  resetRunner() {
+    const { V } = config.SATELLITE;
+
+    this.runner = {
+      timestamp: 0,
+      satellite: {
+        rotation: null,
+        mu: (Math.pow(V.x, 2) + Math.pow(V.y, 2)) * this.state.planet.orbits[0].radius
+      }
+    };
   }
 
   createPlanet() {
@@ -266,13 +270,18 @@ class Scene extends Phaser.Scene {
   resetSatellite() {
     this.state.satellite = {
       ...this.state.satellite,
-      ...this.getSatelliteDefaultPosition(),
+      // ...this.getSatelliteDefaultPosition(),
+      ...this.getSatelliteStartPosition(),
       vx: config.SATELLITE.V.x,
       vy: config.SATELLITE.V.y
     }
 
     this.satellite.setStatic(false);
     this.buildSatellite();
+
+    this.state.history[0].satellite = $.extend(true, {}, this.state.satellite);
+
+    this.resetRunner();
   }
 
   buildSatellite() {
@@ -288,15 +297,25 @@ class Scene extends Phaser.Scene {
   }
 
   getSatelliteDefaultPosition() {
-    const { ROTATION } = config.SATELLITE.POSITION;
     const { RADIUS } = config.PLANET.ORBIT.DEFAULT;
 
-    return {
-      x: config.PLANET.x + RADIUS * Math.cos(-ROTATION),
-      y: config.PLANET.y - RADIUS * Math.sin(-ROTATION)
-    }
+    return this.getSatellitePositionByRadius(RADIUS);
   }
 
+  getSatelliteStartPosition() {
+    const { radius } = this.state.planet.orbits[0];
+
+    return this.getSatellitePositionByRadius(radius);
+  }
+
+  getSatellitePositionByRadius(radius) {
+    const { ROTATION } = config.SATELLITE.POSITION;
+
+    return {
+      x: config.PLANET.x + radius * Math.cos(-ROTATION),
+      y: config.PLANET.y - radius * Math.sin(-ROTATION)
+    }
+  }
   
   buildSatellitePosition() {
     this.satellite.setPosition(this.state.satellite.x, this.state.satellite.y);
@@ -1015,8 +1034,13 @@ class Scene extends Phaser.Scene {
     const oType = ['DEFAULT', 'TARGET', 'CURRENT'][i];
     const oConfig = config.PLANET.ORBIT[oType];
 
+    const { WIDTH, COLOR } = config.PLANET.ORBIT;
+    
+    const { opacity, ...stateProps } = this.state.planet.orbits[i];
+    this.graphics.lineStyle(WIDTH, COLOR, opacity);
+    
     if (i < 2) {
-      const { dashed, radius, gap } = this.state.planet.orbits[i];
+      const { dashed, radius, gap } = stateProps;
 
       if (!dashed) {
         this.graphics.beginPath();
@@ -1043,11 +1067,11 @@ class Scene extends Phaser.Scene {
       }
     }
     else {
-      if (!oConfig.ENABLED) return;
+      if (!oConfig.ENABLED || this.state.history.length === 1) return;
 
       // Current orbit
       this.graphics.beginPath();
-
+      
       o.forEach(({ x, y }) => this.graphics.lineTo(x, y));
 
       // this.graphics.closePath();
@@ -1055,53 +1079,24 @@ class Scene extends Phaser.Scene {
     }
   }
 
-  async changeOrbit(i, props = {}) {
-    if (i === 2) return;
+  async changeOrbit(i, styles = {}, props = {}) {
+    const { dashed, ...stateStyles } = this.state.planet.orbits[i];
 
-    const { radius, gap, dashed } = this.state.planet.orbits[i];
-
-    props = {
-      radius, gap,
-      onStart: (...args) => {},
-      onUpdate: (...args) => {},
-      onComplete: (...args) => {},
-      duration: 500,
-      toWait: true,
-      ...props
+    styles = {
+      ...stateStyles,
+      ...styles
     };
 
-    if (!dashed && props.gap !== 0) {
+    if (i !== 2 && !dashed && styles.gap !== 0) {
       this.state.planet.orbits[i].dashed = true;
     }
 
-    await new Promise((resolve) => {
-      if (!props.toWait) {
-        this.state.planet.orbits[i].radius = radius;
-        this.state.planet.orbits[i].gap = gap;
-        resolve();
-      }
-      
-      this.tweens.add({
-        targets: this.state.planet.orbits[i],
-        radius: props.radius,
-        gap: props.gap,
-        duration: props.duration,
-        onStart: props.onStart,
-        onUpdate: props.onUpdate,
-        onComplete: (...args) => {
-          props.onComplete(...args);
-          resolve();
-        }
-      });
-    });
+    await this.change(this.state.planet.orbits[i], styles, props);
 
-    this.state.planet.orbits[i].dashed = (this.state.planet.orbits[i].gap !== 0);
+    this.state.planet.orbits[i].dashed = (i !== 2 && this.state.planet.orbits[i].gap !== 0);
   }
 
   drawOrbits() {
-    const { WIDTH, COLOR, OPACITY } = config.PLANET.ORBIT;
-
-    this.graphics.lineStyle(WIDTH, COLOR, OPACITY);
     this.orbits.forEach( (o, i) => this.drawOrbit(i) );
   }
 
@@ -1111,6 +1106,39 @@ class Scene extends Phaser.Scene {
     this.updateObjects(time, delta);
 
     this.matter.world.step(delta);
+  }
+
+  async change(targets, styles = {}, props = {}) {
+    props = {
+      onStart: (...args) => {},
+      onUpdate: (...args) => {},
+      onComplete: (...args) => {},
+      duration: 500,
+      toWait: true,
+      ...props
+    };
+
+    await new Promise((resolve) => {
+      if (!props.toWait) {
+        for (key of styles) {
+          this.state.planet.orbits[i][key] = styles[key];
+        }
+        resolve();
+        return;
+      }
+
+      this.tweens.add({
+        targets,
+        ...styles,
+        duration: props.duration,
+        onStart: props.onStart,
+        onUpdate: props.onUpdate,
+        onComplete: (...args) => {
+          props.onComplete(...args);
+          resolve();
+        }
+      });
+    });
   }
 
   getState() {

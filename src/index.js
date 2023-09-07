@@ -24,8 +24,13 @@ $('body').append( space.view );
   await space.build(state);
   setTimeout(async() => {
 
-    await space.scene.changeOrbit(0, { radius: 56, gap: 0, duration: 3000 });
-    await space.scene.changeOrbit(0, { radius: 100, gap: 1, duration: 3000 });
+    // await space.scene.changeOrbit(2, { opacity: 0 },  { duration: 3000 });
+    // await space.scene.changeOrbit(2, { opacity: 1 },  { duration: 3000 });
+    await space.scene.changeOrbit(0, { radius: 100, gap: 0, opacity: 0 },  { duration: 1500 });
+    space.scene.resetSatellite();
+
+    await space.scene.changeOrbit(0, { radius: 150, gap: 1, opacity: 1 },  { duration: 1500 });
+    space.scene.resetSatellite();
 
     const onUpdate = () => {
       store(space.getState());
@@ -58,6 +63,6 @@ $('body').append( space.view );
     //     console.log('onComplete: ', result);
     //   },
     // });
-  }, 100);
+  }, 300);
 })();
 
