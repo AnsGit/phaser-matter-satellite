@@ -282,6 +282,7 @@ class Scene extends Phaser.Scene {
 
   createSatellite() {
     this.satellite = this.matter.add.sprite(0, 0, 'satellite', 0);
+    this.satellite.setOrigin(config.SATELLITE.ORIGIN.x, config.SATELLITE.ORIGIN.y);
 
     this.buildSatellite();
     // this.resetSatellite();

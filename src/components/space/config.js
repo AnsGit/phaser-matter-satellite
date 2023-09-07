@@ -19,6 +19,7 @@ const config = {
   SATELLITE: {
     WIDTH: 57,
     HEIGHT: 46,
+    ORIGIN: { x: 0.4, y: 0.5 },
     POSITION: { ROTATION: -Math.PI/2 },
     V: { x: -0.5, y: 0, k: 0.05 },
     ACCELERATION: {
