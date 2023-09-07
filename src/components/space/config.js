@@ -17,8 +17,8 @@ const config = {
     }
   },
   SATELLITE: {
-    WIDTH: 52,
-    HEIGHT: 49,
+    WIDTH: 57,
+    HEIGHT: 46,
     POSITION: { ROTATION: -Math.PI/2 },
     V: { x: -0.5, y: 0, k: 0.05 },
     ACCELERATION: {
@@ -28,7 +28,7 @@ const config = {
   ARROW: {
     WIDTH: 3,
     LENGTH: { MIN: 40 },
-    COLOR: '0x03C3EF',
+    COLOR: '0xFFCC6B',
     CORNER: {
       RADIUS: 15,
       ANGLE: Math.PI/2

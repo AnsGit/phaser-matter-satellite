@@ -25,11 +25,37 @@ $('body').append( space.view );
   setTimeout(async() => {
     space.scene.setPlanetRadius(20);
 
-    await space.scene.changeOrbit(0, { radius: 100, gap: 0, opacity: 0 }, { duration: 1500, toWait: true });
-    space.scene.resetSatellite();
+    // await space.scene.changeOrbit(0, { radius: 100, gap: 0, opacity: 0 }, { duration: 1500, toWait: true });
+    await space.scene.changeOrbit(0, {
+        radius: 100,
+        gap: 0,
+        opacity: 0
+      },
+      {
+        duration: 1500,
+        toWait: true,
+        onUpdate: () => {
+          space.scene.resetSatellite();
+        }
+      }
+    );
+    // space.scene.resetSatellite();
 
-    await space.scene.changeOrbit(0, { radius: 70, gap: 1, opacity: 1 },  { duration: 1500, toWait: true });
-    space.scene.resetSatellite();
+    // await space.scene.changeOrbit(0, { radius: 70, gap: 1, opacity: 1 },  { duration: 1500, toWait: true });
+    await space.scene.changeOrbit(0, {
+      radius: 70,
+      gap: 1,
+      opacity: 1
+    },
+    {
+      duration: 1500,
+      toWait: true,
+      onUpdate: () => {
+        space.scene.resetSatellite();
+      }
+    }
+  );
+    // space.scene.resetSatellite();
 
     const onUpdate = () => {
       store(space.getState());

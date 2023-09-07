@@ -9,7 +9,10 @@ class Scene extends Phaser.Scene {
   graphics;
 
   preload() {
-    this.load.image("satellite", require("./assets/satellite.png"), config.SATELLITE.WIDTH, config.SATELLITE.HEIGHT);
+    this.load.spritesheet("satellite", require("./assets/satellite.png"), {
+      frameWidth: config.SATELLITE.WIDTH,
+      frameHeight: config.SATELLITE.HEIGHT
+    });
   }
 
   _preset() {
@@ -152,6 +155,18 @@ class Scene extends Phaser.Scene {
     this.state.planet.radius = radius;
   }
 
+  changePlanetRadius(radius, props = {}) {
+    props = {
+      toWait: true,
+      duration: 500,
+      ...props
+    };
+
+    this.setPlanetRadius(radius);
+
+    // ...
+  }
+
   resetPlanet() {
     this.buildPlanet();
   }
@@ -266,11 +281,7 @@ class Scene extends Phaser.Scene {
   }
 
   createSatellite() {
-    this.satellite = this.matter.add.image(
-      0, 0,
-      'satellite',
-      null
-    );
+    this.satellite = this.matter.add.sprite(0, 0, 'satellite', 0);
 
     this.buildSatellite();
     // this.resetSatellite();
@@ -746,6 +757,8 @@ class Scene extends Phaser.Scene {
     this.moveSatellite();
 
     if (this.running) {
+      this.satellite.setFrame(1);
+      
       this.runner.timestamp += delta;
 
       this.updateCounter(time, delta);
@@ -895,6 +908,8 @@ class Scene extends Phaser.Scene {
 
   async stop() {
     this.running = false;
+
+    this.satellite.setFrame(0);
 
     this.hideButton('run');
 
