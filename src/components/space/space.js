@@ -34,6 +34,7 @@ class Space {
       physics: {
         default: "matter",
         matter: {
+          debug: true,
           gravity: {
             scale: 0
           }

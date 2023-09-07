@@ -4,6 +4,7 @@ const config = {
   BACKGROUND_COLOR: '0x030B35',
   PLANET: {
     RADIUS: 32,
+    DEPTH: 15,
     x: 512,
     y: 256,
     ORBIT: {

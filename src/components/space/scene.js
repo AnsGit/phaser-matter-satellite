@@ -9,7 +9,6 @@ class Scene extends Phaser.Scene {
   graphics;
 
   preload() {
-    this.load.image("planet", require("./assets/planet.png"), config.PLANET.RADIUS * 2, config.PLANET.RADIUS * 2);
     this.load.image("satellite", require("./assets/satellite.png"), config.SATELLITE.WIDTH, config.SATELLITE.HEIGHT);
   }
 
@@ -55,6 +54,7 @@ class Scene extends Phaser.Scene {
         vy: config.SATELLITE.V.y
       },
       planet: {
+        radius: config.PLANET.RADIUS,
         orbits: ['DEFAULT', 'TARGET', 'CURRENT'].map((type) => {
           if (type === 'CURRENT') return { opacity: 1 };
 
@@ -126,21 +126,30 @@ class Scene extends Phaser.Scene {
   }
 
   createPlanet() {
-    this.planet = this.matter.add.image(
+    this.planet = this.matter.add.circle(
       config.PLANET.x,
       config.PLANET.y,
-      'planet',
-      null,
-      {
-        shape: {
-          type: 'circle',
-          radius: config.PLANET.RADIUS - 15
-        }
-      }
+      1,
+      { isStatic: true }
     );
-
+    
+    this.setPlanetRadius(this.state.planet.radius);
+    
     this.buildPlanet();
-    // this.resetPlanet();
+  }
+  
+  setPlanetRadius(radius) {
+    let scale;
+
+    if (this.planet.scale.x !== 1) {
+      scale = 1 / (this.state.planet.radius - config.PLANET.DEPTH);
+      this.matter.body.scale(this.planet, scale, scale);
+    }
+    
+    scale = radius - config.PLANET.DEPTH;
+    this.matter.body.scale(this.planet, scale, scale);
+
+    this.state.planet.radius = radius;
   }
 
   resetPlanet() {
@@ -148,7 +157,7 @@ class Scene extends Phaser.Scene {
   }
 
   buildPlanet() {
-    this.planet.setStatic(true);
+    // ...
   }
 
   createOrbits() {
@@ -897,15 +906,19 @@ class Scene extends Phaser.Scene {
   }
 
   subscribeSatellite() {
-    this.satellite.on('collide', (data) => {
+    this.satellite.on('collide', async (data) => {
+      await this._cb.onDown({ action: 'collide' });
+
       this.running = false;
       this.satellite.setStatic(true);
       this.disableButton('ignit');
+
+      await this._cb.onComplete({ action: 'collide' });
     });
   }
 
   unsubscribeSatellite() {
-    // this.satellite.off('collide');
+    this.satellite.off('collide');
   }
 
   subscribeButtons() {
