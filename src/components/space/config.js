@@ -12,7 +12,7 @@ const config = {
       // DEFAULT: { RADIUS: 56, SEGMENTS: 44, DASHED: false },
       DEFAULT: { RADIUS: 196, SEGMENTS: 44, DASHED: true },
       TARGET: { RADIUS: 216, SEGMENTS: 44, DASHED: true, WIDTH: 50 },
-      CURRENT: { ENABLED: true },
+      CURRENT: { ENABLED: true, POINTS: 5000 },
       WIDTH: 1,
       COLOR: '0xA89CFF',
     }
@@ -25,6 +25,11 @@ const config = {
     V: { x: -0.5, y: 0, k: 0.05 },
     ACCELERATION: {
       DURATION: 4600,
+    },
+    CONNECTION: {
+      LOSS: {
+        DISTANCE: 100
+      }
     }
   },
   ARROW: {

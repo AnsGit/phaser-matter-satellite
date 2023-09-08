@@ -29,6 +29,8 @@ class Scene extends Phaser.Scene {
     this.matter.world.autoUpdate = false;
     this.graphics = this.add.graphics();
 
+    this.ee = new Phaser.Events.EventEmitter();
+
     this._cb = {
       onDown: () => {},
       onComplete: async (result) => {},
@@ -228,7 +230,7 @@ class Scene extends Phaser.Scene {
     return true;
   }
 
-  getCurrentOrbitPoints(step = 20, max = 5000) {
+  getCurrentOrbitPoints(step = 20, max = config.PLANET.ORBIT.CURRENT.POINTS) {
     let { x, y, vx, vy } = this.state.satellite;
     let dx, dy, dl, dl3, dvx, dvy;
 
@@ -400,6 +402,19 @@ class Scene extends Phaser.Scene {
 
       this.state.satellite.x += this.state.satellite.vx / 2
       this.state.satellite.y += this.state.satellite.vy / 2;
+    }
+
+    if (this.orbits[2] && this.orbits[2].length >= config.PLANET.ORBIT.CURRENT.POINTS) {
+      const lossDistance = config.SATELLITE.CONNECTION.LOSS.DISTANCE;
+      
+      const isConnectionLost = (
+        this.state.satellite.x < -lossDistance ||
+        this.state.satellite.y < -lossDistance ||
+        this.state.satellite.x > config.WIDTH + lossDistance ||
+        this.state.satellite.y > config.HEIGHT + lossDistance
+      );
+
+      isConnectionLost && this.ee.emit('connection-loss');
     }
   }
 
@@ -954,6 +969,15 @@ class Scene extends Phaser.Scene {
 
       await this._cb.onComplete({ action: 'collide' });
     });
+
+    this.ee.addListener('connection-loss', async () => {
+      this.running = false;
+      this.satellite.setStatic(true);
+      this.satellite.setFrame(0);
+      this.disableButton('ignit');
+
+      await this._cb.onComplete({ action: 'connection-loss' });
+    })
   }
 
   unsubscribeSatellite() {
@@ -1044,6 +1068,8 @@ class Scene extends Phaser.Scene {
   }
 
   unsubscribe() {
+    this.ee.destroy();
+
     this.unsubscribeSatellite();
     this.unsubscribeArrow();
     this.unsubscribeButtons();
