@@ -15,6 +15,7 @@ class Space {
   _initProps(props = {}) {
     this._defaultProps = {
       class: 'space',
+      integer: false
     };
 
     this.props = $.extend(true, {}, this._defaultProps, props);
@@ -41,10 +42,15 @@ class Space {
         },
       },
       scene: [Scene],
-      callbacks: { postBoot: cb },
+      callbacks: {
+        preBoot: (game) => {
+          game.props = this.props;
+          game.state = $.extend(false, {}, state);
+          game.onLoad = cb;
+        },
+        // postBoot: cb
+      },
     });
-
-    this.game.state = $.extend(false, {}, state);
   }
 
   getState() {

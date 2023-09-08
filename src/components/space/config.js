@@ -3,7 +3,8 @@ const config = {
   HEIGHT: 512,
   BACKGROUND_COLOR: '0x030B35',
   PLANET: {
-    RADIUS: 32,
+    // RADIUS: 32,
+    RADIUS: 128,
     DEPTH: 15,
     x: 512,
     y: 256,
@@ -33,6 +34,14 @@ const config = {
     CORNER: {
       RADIUS: 15,
       ANGLE: Math.PI/2
+    }
+  },
+  COUNTER: {
+    STATUS: {
+      VALUE: {
+        BOTTOM: 15,
+        INTEGER: false
+      }
     }
   },
   PHYSICS: {

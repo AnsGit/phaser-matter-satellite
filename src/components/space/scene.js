@@ -22,19 +22,19 @@ class Scene extends Phaser.Scene {
   create() {
     this._preset();
 
+    this.restore();
+
     this.parent = $(this.registry.parent.config.parent);
 
     this.matter.world.autoUpdate = false;
     this.graphics = this.add.graphics();
 
-    this.restore();
-    
-    this.resetRunner();
-
     this._cb = {
       onDown: () => {},
       onComplete: async (result) => {},
     };
+
+    this.resetRunner();
 
     this.createPlanet();
     this.createOrbits();
@@ -46,6 +46,11 @@ class Scene extends Phaser.Scene {
     this.createButtons();
 
     this.build();
+
+    if (this.game.onLoad) {
+      this.game.onLoad();
+      delete this.game.onLoad;
+    }
   }
 
   restore() {
@@ -142,8 +147,10 @@ class Scene extends Phaser.Scene {
   }
   
   setPlanetRadius(radius) {
-    let scale;
+    if (!this.planet) return;
 
+    let scale;
+    
     if (this.planet.scale.x !== 1) {
       scale = 1 / (this.state.planet.radius - config.PLANET.DEPTH);
       this.matter.body.scale(this.planet, scale, scale);
@@ -282,6 +289,8 @@ class Scene extends Phaser.Scene {
 
   createSatellite() {
     this.satellite = this.matter.add.sprite(0, 0, 'satellite', 0);
+    
+    this.satellite.setCircle(config.SATELLITE.HEIGHT/2)
     this.satellite.setOrigin(config.SATELLITE.ORIGIN.x, config.SATELLITE.ORIGIN.y);
 
     this.buildSatellite();
@@ -289,6 +298,8 @@ class Scene extends Phaser.Scene {
   }
 
   resetSatellite() {
+    if (!this.satellite) return;
+
     this.state.satellite = {
       ...this.state.satellite,
       // ...this.getSatelliteDefaultPosition(),
@@ -448,13 +459,11 @@ class Scene extends Phaser.Scene {
 
   createCounter() {
     this.counter = {
-      view: $('<div>', { class: 'counter' }),
+      view: $('<div>', { class: `counter ${this.game.props.integer ? 'integer' : ''}` }),
       status: {
         view: $('<div>', { class: 'status' }),
-        inner: {
-          view: $('<div>', { class: 'inner' }),
-          value: $('<div>', { class: 'value' })
-        }
+        inner: $('<div>', { class: 'inner' }),
+        value: $('<div>', { class: 'value' })
       },
       switchers: {
         view: $('<div>', { class: 'switchers' }),
@@ -484,9 +493,8 @@ class Scene extends Phaser.Scene {
     
     this.counter.view.append(
       this.counter.status.view.append(
-        this.counter.status.inner.view.append(
-          this.counter.status.inner.value
-        )
+        this.counter.status.inner,
+        this.counter.status.value
       ),
       this.counter.switchers.view.append(
         ...this.counter.switchers.list.map( s => s.view )
@@ -508,13 +516,20 @@ class Scene extends Phaser.Scene {
   buildCounter() {
     this.counter.status.height = this.counter.status.view.height() / 2;
 
-    this.counter.status.inner.view.height(
-      (this.state.counter.switchers.value.available/config.SATELLITE.ACCELERATION.DURATION) * this.counter.status.height
-    );
+    const innerHeight = (this.state.counter.switchers.value.available/config.SATELLITE.ACCELERATION.DURATION) * this.counter.status.height;
+    this.counter.status.inner.height( innerHeight );
+    
+    const valueBottom = config.COUNTER.STATUS.VALUE.BOTTOM;
+    const valueTop = this.counter.status.height * 2 - (innerHeight > valueBottom ? innerHeight : valueBottom);
+    this.counter.status.value.css({ top: valueTop });
 
-    this.counter.status.inner.value.text(
-      (this.state.counter.switchers.value.available/1000).toFixed(1)
-    );
+    // Actual duration on counter status
+    let statusDuration = (this.state.counter.switchers.value.available/1000);
+    statusDuration = statusDuration.toFixed(1) * (this.game.props.integer ? 10 : 1);
+
+    this.counter.status.value.text( statusDuration );
+
+    this.counter.view.toggleClass('expired', innerHeight <= valueBottom);
 
     this.counter.switchers.list.forEach((s, i) => {
       s.value.text(this.state.counter.switchers.list[i].value);
@@ -618,15 +633,21 @@ class Scene extends Phaser.Scene {
     const maxDuration = config.SATELLITE.ACCELERATION.DURATION;
     
     // Actual height of counter status inner part
-    this.counter.status.inner.view.height(
-      this.counter.status.height * (availableDuration - this.runner.timestamp)/maxDuration
-    );
+    const innerHeight = this.counter.status.height * (availableDuration - this.runner.timestamp)/maxDuration;
+    this.counter.status.inner.height( innerHeight );
       
+    const valueBottom = config.COUNTER.STATUS.VALUE.BOTTOM;
+    const valueTop = this.counter.status.height * 2 - (innerHeight > valueBottom ? innerHeight : valueBottom);
+    this.counter.status.value.css({ top: valueTop });
+
     // Actual duration on counter status
     let statusDuration = (availableDuration - this.runner.timestamp) / 1000;
     (statusDuration < 0) && (statusDuration = 0);
+    statusDuration = statusDuration.toFixed(1) * (this.game.props.integer ? 10 : 1);
 
-    this.counter.status.inner.value.text( statusDuration.toFixed(1) );
+    this.counter.status.value.text( statusDuration );
+
+    this.counter.view.toggleClass('expired', innerHeight <= valueBottom);
   }
 
   disableCounter() {
@@ -805,6 +826,7 @@ class Scene extends Phaser.Scene {
     this.buildPlanet();
 
     this.satellite.setStatic(false);
+    this.satellite.setFrame(0);
     this.buildSatellite();
 
     this.buildOrbits();
@@ -927,6 +949,7 @@ class Scene extends Phaser.Scene {
 
       this.running = false;
       this.satellite.setStatic(true);
+      this.satellite.setFrame(0);
       this.disableButton('ignit');
 
       await this._cb.onComplete({ action: 'collide' });
