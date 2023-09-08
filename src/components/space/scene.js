@@ -406,7 +406,7 @@ class Scene extends Phaser.Scene {
 
     if (this.orbits[2] && this.orbits[2].length >= config.PLANET.ORBIT.CURRENT.POINTS) {
       const lossDistance = config.SATELLITE.CONNECTION.LOSS.DISTANCE;
-      
+
       const isConnectionLost = (
         this.state.satellite.x < -lossDistance ||
         this.state.satellite.y < -lossDistance ||
@@ -1115,10 +1115,23 @@ class Scene extends Phaser.Scene {
     const { WIDTH, COLOR } = config.PLANET.ORBIT;
     
     const { opacity, ...stateProps } = this.state.planet.orbits[i];
-    this.graphics.lineStyle(WIDTH, COLOR, opacity);
     
     if (i < 2) {
       const { dashed, radius, gap } = stateProps;
+
+      if (i === 1) {
+        // Draw target orbit's pad
+        this.graphics.lineStyle(oConfig.WIDTH, oConfig.PAD.COLOR, opacity * oConfig.PAD.OPACITY);
+        
+        // this.graphics.beginPath();
+        // this.graphics.arc(o.x, o.y, radius, 0, 2 * Math.PI);
+        // this.graphics.closePath();
+
+        this.graphics.strokeRoundedRect(o.x - radius, o.y - radius, radius * 2, radius * 2, radius);
+        this.graphics.stroke();
+      }
+
+      this.graphics.lineStyle(WIDTH, COLOR, opacity);
 
       if (!dashed) {
         this.graphics.beginPath();
@@ -1146,6 +1159,8 @@ class Scene extends Phaser.Scene {
     }
     else {
       if (!oConfig.ENABLED || this.state.history.length === 1) return;
+
+      this.graphics.lineStyle(WIDTH, COLOR, opacity);
 
       // Current orbit
       this.graphics.beginPath();

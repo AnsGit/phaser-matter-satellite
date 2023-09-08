@@ -10,8 +10,11 @@ const config = {
     y: 256,
     ORBIT: {
       // DEFAULT: { RADIUS: 56, SEGMENTS: 44, DASHED: false },
-      DEFAULT: { RADIUS: 196, SEGMENTS: 44, DASHED: true },
-      TARGET: { RADIUS: 216, SEGMENTS: 44, DASHED: true, WIDTH: 50 },
+      DEFAULT: { RADIUS: 196, SEGMENTS: 22, DASHED: true },
+      TARGET: {
+        RADIUS: 216, SEGMENTS: 22, DASHED: true, WIDTH: 50,
+        PAD: { OPACITY: 0.5, COLOR: 0x474BBD }
+      },
       CURRENT: { ENABLED: true, POINTS: 5000 },
       WIDTH: 1,
       COLOR: '0xA89CFF',
