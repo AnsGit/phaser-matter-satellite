@@ -1,16 +1,18 @@
-// import Phaser from "phaser";
-import Phaser from "./phaser.js";
-import _, { times } from "underscore";
+import Phaser from "phaser";
+
+import _ from "underscore";
 import $ from "jquery";
 
 import config from "./config.js";
 
-class Play extends Phaser.Scene {
+class Scene extends Phaser.Scene {
   graphics;
 
   preload() {
-    this.load.image("planet", require("../assets/planet.png"), config.PLANET.RADIUS * 2, config.PLANET.RADIUS * 2);
-    this.load.image("satellite", require("../assets/satellite.png"), config.SATELLITE.WIDTH, config.SATELLITE.HEIGHT);
+    this.load.spritesheet("satellite", require("./assets/satellite.png"), {
+      frameWidth: config.SATELLITE.WIDTH,
+      frameHeight: config.SATELLITE.HEIGHT
+    });
   }
 
   _preset() {
@@ -20,22 +22,21 @@ class Play extends Phaser.Scene {
   create() {
     this._preset();
 
-    this.parent = $(`#${this.registry.parent.config.parent}`);
+    this.restore();
+
+    this.parent = $(this.registry.parent.config.parent);
 
     this.matter.world.autoUpdate = false;
     this.graphics = this.add.graphics();
 
-    const { V } = config.SATELLITE;
+    this.ee = new Phaser.Events.EventEmitter();
 
-    this.runner = {
-      timestamp: 0,
-      satellite: {
-        rotation: null,
-        mu: (Math.pow(V.x, 2) + Math.pow(V.y, 2)) * config.PLANET.ORBIT.DEFAULT.RADIUS
-      }
+    this._cb = {
+      onDown: () => {},
+      onComplete: async (result) => {},
     };
 
-    this.restore();
+    this.resetRunner();
 
     this.createPlanet();
     this.createOrbits();
@@ -47,24 +48,29 @@ class Play extends Phaser.Scene {
     this.createButtons();
 
     this.build();
-    this.subscribe();
-  }
 
-  store() {
-    if (!config.LOCAL_STORAGE) return;
-
-    window.localStorage['matter-satellite'] = JSON.stringify(this.state);
+    if (this.game.onLoad) {
+      this.game.onLoad();
+      delete this.game.onLoad;
+    }
   }
 
   restore() {
-    // delete window.localStorage['matter-satellite'];
-    
     this.state = {
       action: 0, // 0 - before ignit, 1 - before arrow activation, 2 - before counter changing, 3 - after running
       satellite: {
         ...this.getSatelliteDefaultPosition(),
         vx: config.SATELLITE.V.x,
         vy: config.SATELLITE.V.y
+      },
+      planet: {
+        radius: config.PLANET.RADIUS,
+        orbits: ['DEFAULT', 'TARGET', 'CURRENT'].map((type) => {
+          if (type === 'CURRENT') return { opacity: 1 };
+
+          const { RADIUS, DASHED } = config.PLANET.ORBIT[type];
+          return { radius: RADIUS, dashed: DASHED, gap: 1, opacity: 1 };
+        })
       },
       counter: {
         switchers: {
@@ -84,14 +90,7 @@ class Play extends Phaser.Scene {
 
     this.saveStateToHistory();
 
-    if (!config.LOCAL_STORAGE) return;
-    if (!window.localStorage['matter-satellite']) return;
-
-    this.state = $.extend(
-      false,
-      this.state,
-      JSON.parse(window.localStorage['matter-satellite'])
-    );
+    this.state = $.extend(false, this.state, this.game.state);
   }
 
   // Save new step
@@ -124,22 +123,57 @@ class Play extends Phaser.Scene {
     // ...
   }
 
+  resetRunner() {
+    const { V } = config.SATELLITE;
+
+    this.runner = {
+      timestamp: 0,
+      satellite: {
+        rotation: null,
+        mu: (Math.pow(V.x, 2) + Math.pow(V.y, 2)) * this.state.planet.orbits[0].radius
+      }
+    };
+  }
+
   createPlanet() {
-    this.planet = this.matter.add.image(
+    this.planet = this.matter.add.circle(
       config.PLANET.x,
       config.PLANET.y,
-      'planet',
-      null,
-      {
-        shape: {
-          type: 'circle',
-          radius: config.PLANET.RADIUS - 15
-        }
-      }
+      1,
+      { isStatic: true }
     );
-
+    
+    this.setPlanetRadius(this.state.planet.radius);
+    
     this.buildPlanet();
-    // this.resetPlanet();
+  }
+  
+  setPlanetRadius(radius) {
+    if (!this.planet) return;
+
+    let scale;
+    
+    if (this.planet.scale.x !== 1) {
+      scale = 1 / (this.state.planet.radius - config.PLANET.DEPTH);
+      this.matter.body.scale(this.planet, scale, scale);
+    }
+    
+    scale = radius - config.PLANET.DEPTH;
+    this.matter.body.scale(this.planet, scale, scale);
+
+    this.state.planet.radius = radius;
+  }
+
+  changePlanetRadius(radius, props = {}) {
+    props = {
+      toWait: true,
+      duration: 500,
+      ...props
+    };
+
+    this.setPlanetRadius(radius);
+
+    // ...
   }
 
   resetPlanet() {
@@ -147,15 +181,15 @@ class Play extends Phaser.Scene {
   }
 
   buildPlanet() {
-    this.planet.setStatic(true);
+    // ...
   }
 
   createOrbits() {
-    this.orbits = ['DEFAULT', 'TARGET', 'CURRENT'].map((type) => {
+    this.orbits = ['DEFAULT', 'TARGET', 'CURRENT'].map((type, i) => {
       if (type === 'CURRENT') return [];
 
-      const { RADIUS } = config.PLANET.ORBIT[type];
-      return new Phaser.Geom.Circle(config.PLANET.x, config.PLANET.y, RADIUS);
+      const radius = this.state.planet.orbits[i];
+      return new Phaser.Geom.Circle(config.PLANET.x, config.PLANET.y, radius);
     });
 
     this.buildOrbits();
@@ -178,8 +212,10 @@ class Play extends Phaser.Scene {
 
     if (!points) return false;
 
-    const maxD = config.PLANET.ORBIT.TARGET.RADIUS + config.PLANET.ORBIT.TARGET.WIDTH/2;
-    const minD = config.PLANET.ORBIT.TARGET.RADIUS - config.PLANET.ORBIT.TARGET.WIDTH/2;
+    const { radius } = this.state.planet.orbits[1];
+
+    const maxD = radius + config.PLANET.ORBIT.TARGET.WIDTH/2;
+    const minD = radius - config.PLANET.ORBIT.TARGET.WIDTH/2;
 
     for(let i = 0; i < points.length; i++) {
       const { x, y } = points[i];
@@ -194,7 +230,7 @@ class Play extends Phaser.Scene {
     return true;
   }
 
-  getCurrentOrbitPoints(step = 20, max = 5000) {
+  getCurrentOrbitPoints(step = 20, max = config.PLANET.ORBIT.CURRENT.POINTS) {
     let { x, y, vx, vy } = this.state.satellite;
     let dx, dy, dl, dl3, dvx, dvy;
 
@@ -254,34 +290,36 @@ class Play extends Phaser.Scene {
   }
 
   createSatellite() {
-    this.satellite = this.matter.add.image(
-      0, 0,
-      'satellite',
-      null,
-      { mass: config.SATELLITE.MASS }
-    );
+    this.satellite = this.matter.add.sprite(0, 0, 'satellite', 0);
+    
+    this.satellite.setCircle(config.SATELLITE.HEIGHT/2)
+    this.satellite.setOrigin(config.SATELLITE.ORIGIN.x, config.SATELLITE.ORIGIN.y);
 
     this.buildSatellite();
     // this.resetSatellite();
   }
 
   resetSatellite() {
+    if (!this.satellite) return;
+
     this.state.satellite = {
       ...this.state.satellite,
-      ...this.getSatelliteDefaultPosition(),
+      // ...this.getSatelliteDefaultPosition(),
+      ...this.getSatelliteStartPosition(),
       vx: config.SATELLITE.V.x,
       vy: config.SATELLITE.V.y
     }
 
     this.satellite.setStatic(false);
     this.buildSatellite();
+
+    this.state.history[0].satellite = $.extend(true, {}, this.state.satellite);
+
+    this.resetRunner();
   }
 
   buildSatellite() {
     this.buildSatellitePosition();
-
-    this.satellite.setFriction(0);
-    this.satellite.setFrictionAir(0);
 
     if ([1, 2].includes(this.state.action)) {
       this.satellite.setStatic(true);
@@ -293,15 +331,25 @@ class Play extends Phaser.Scene {
   }
 
   getSatelliteDefaultPosition() {
-    const { ROTATION } = config.SATELLITE.POSITION;
     const { RADIUS } = config.PLANET.ORBIT.DEFAULT;
 
-    return {
-      x: config.PLANET.x + RADIUS * Math.cos(-ROTATION),
-      y: config.PLANET.y - RADIUS * Math.sin(-ROTATION)
-    }
+    return this.getSatellitePositionByRadius(RADIUS);
   }
 
+  getSatelliteStartPosition() {
+    const { radius } = this.state.planet.orbits[0];
+
+    return this.getSatellitePositionByRadius(radius);
+  }
+
+  getSatellitePositionByRadius(radius) {
+    const { ROTATION } = config.SATELLITE.POSITION;
+
+    return {
+      x: config.PLANET.x + radius * Math.cos(-ROTATION),
+      y: config.PLANET.y - radius * Math.sin(-ROTATION)
+    }
+  }
   
   buildSatellitePosition() {
     this.satellite.setPosition(this.state.satellite.x, this.state.satellite.y);
@@ -355,6 +403,19 @@ class Play extends Phaser.Scene {
       this.state.satellite.x += this.state.satellite.vx / 2
       this.state.satellite.y += this.state.satellite.vy / 2;
     }
+
+    if (this.orbits[2] && this.orbits[2].length >= config.PLANET.ORBIT.CURRENT.POINTS) {
+      const lossDistance = config.SATELLITE.CONNECTION.LOSS.DISTANCE;
+
+      const isConnectionLost = (
+        this.state.satellite.x < -lossDistance ||
+        this.state.satellite.y < -lossDistance ||
+        this.state.satellite.x > config.WIDTH + lossDistance ||
+        this.state.satellite.y > config.HEIGHT + lossDistance
+      );
+
+      isConnectionLost && this.ee.emit('connection-loss');
+    }
   }
 
   createArrow() {
@@ -373,12 +434,8 @@ class Play extends Phaser.Scene {
   buildArrow() {
     this.buildArrowCorner();
 
-    if ([1, 2].includes(this.state.action)) {
-      this.subscribeArrow();
-
-      if (this.state.action === 2) {
-        this.activateArrow(true);
-      }
+    if (this.state.action === 2) {
+      this.activateArrow(true);
     }
   }
 
@@ -405,7 +462,6 @@ class Play extends Phaser.Scene {
 
   activateArrow(toActivate = true) {
     this.state.arrow.activated = toActivate;
-    this.store();
   }
 
   createTitle() {
@@ -418,13 +474,11 @@ class Play extends Phaser.Scene {
 
   createCounter() {
     this.counter = {
-      view: $('<div>', { class: 'counter' }),
+      view: $('<div>', { class: `counter ${this.game.props.integer ? 'integer' : ''}` }),
       status: {
         view: $('<div>', { class: 'status' }),
-        inner: {
-          view: $('<div>', { class: 'inner' }),
-          value: $('<div>', { class: 'value' })
-        }
+        inner: $('<div>', { class: 'inner' }),
+        value: $('<div>', { class: 'value' })
       },
       switchers: {
         view: $('<div>', { class: 'switchers' }),
@@ -454,9 +508,8 @@ class Play extends Phaser.Scene {
     
     this.counter.view.append(
       this.counter.status.view.append(
-        this.counter.status.inner.view.append(
-          this.counter.status.inner.value
-        )
+        this.counter.status.inner,
+        this.counter.status.value
       ),
       this.counter.switchers.view.append(
         ...this.counter.switchers.list.map( s => s.view )
@@ -478,13 +531,20 @@ class Play extends Phaser.Scene {
   buildCounter() {
     this.counter.status.height = this.counter.status.view.height() / 2;
 
-    this.counter.status.inner.view.height(
-      (this.state.counter.switchers.value.available/config.SATELLITE.ACCELERATION.DURATION) * this.counter.status.height
-    );
+    const innerHeight = (this.state.counter.switchers.value.available/config.SATELLITE.ACCELERATION.DURATION) * this.counter.status.height;
+    this.counter.status.inner.height( innerHeight );
+    
+    const valueBottom = config.COUNTER.STATUS.VALUE.BOTTOM;
+    const valueTop = this.counter.status.height * 2 - (innerHeight > valueBottom ? innerHeight : valueBottom);
+    this.counter.status.value.css({ top: valueTop });
 
-    this.counter.status.inner.value.text(
-      (this.state.counter.switchers.value.available/1000).toFixed(1)
-    );
+    // Actual duration on counter status
+    let statusDuration = (this.state.counter.switchers.value.available/1000);
+    statusDuration = statusDuration.toFixed(1) * (this.game.props.integer ? 10 : 1);
+
+    this.counter.status.value.text( statusDuration );
+
+    this.counter.view.toggleClass('expired', innerHeight <= valueBottom);
 
     this.counter.switchers.list.forEach((s, i) => {
       s.value.text(this.state.counter.switchers.list[i].value);
@@ -588,15 +648,21 @@ class Play extends Phaser.Scene {
     const maxDuration = config.SATELLITE.ACCELERATION.DURATION;
     
     // Actual height of counter status inner part
-    this.counter.status.inner.view.height(
-      this.counter.status.height * (availableDuration - this.runner.timestamp)/maxDuration
-    );
+    const innerHeight = this.counter.status.height * (availableDuration - this.runner.timestamp)/maxDuration;
+    this.counter.status.inner.height( innerHeight );
       
+    const valueBottom = config.COUNTER.STATUS.VALUE.BOTTOM;
+    const valueTop = this.counter.status.height * 2 - (innerHeight > valueBottom ? innerHeight : valueBottom);
+    this.counter.status.value.css({ top: valueTop });
+
     // Actual duration on counter status
     let statusDuration = (availableDuration - this.runner.timestamp) / 1000;
     (statusDuration < 0) && (statusDuration = 0);
+    statusDuration = statusDuration.toFixed(1) * (this.game.props.integer ? 10 : 1);
 
-    this.counter.status.inner.value.text( statusDuration.toFixed(1) );
+    this.counter.status.value.text( statusDuration );
+
+    this.counter.view.toggleClass('expired', innerHeight <= valueBottom);
   }
 
   disableCounter() {
@@ -728,6 +794,8 @@ class Play extends Phaser.Scene {
     this.moveSatellite();
 
     if (this.running) {
+      this.satellite.setFrame(1);
+      
       this.runner.timestamp += delta;
 
       this.updateCounter(time, delta);
@@ -773,6 +841,7 @@ class Play extends Phaser.Scene {
     this.buildPlanet();
 
     this.satellite.setStatic(false);
+    this.satellite.setFrame(0);
     this.buildSatellite();
 
     this.buildOrbits();
@@ -795,6 +864,8 @@ class Play extends Phaser.Scene {
 
     this.state.action = 1;
 
+    this.state.counter.switchers.value.chosen = 0;
+
     // const step =  _.last(this.state.history);
 
     // ['x', 'y', 'vx', 'vy'].forEach((key) => {
@@ -811,22 +882,24 @@ class Play extends Phaser.Scene {
     }
 
     this.input.on('pointerdown', (pointer) => {
+      this._cb.onDown({ action: 'arrow' });
+
       this.activateArrow(true);
       onPointerEvent(pointer);
 
       this.input.on('pointermove', onPointerEvent);
 
-      const onPointerUp = ((pointer) => {
+      const onPointerUp = (async (pointer) => {
         onPointerEvent(pointer);
 
         this.state.action = 2;
-        this.store();
 
         this.showCounterSwitchers();
         this.enableCounter();
 
-        this.input.removeAllListeners();
-        this.subscribeArrow();
+        this.unsubscribeArrow();
+
+        await this._cb.onComplete({ action: 'arrow' });
       });
       
       this.input.on('pointerup', onPointerUp);
@@ -834,9 +907,13 @@ class Play extends Phaser.Scene {
     });
   }
 
+  unsubscribeArrow() {
+    this.input.removeAllListeners();
+  }
+
   destroyArrow() {
     this.activateArrow(false);
-    this.input.removeAllListeners();
+    this.unsubscribeArrow();
   }
 
   run() {
@@ -870,6 +947,8 @@ class Play extends Phaser.Scene {
   async stop() {
     this.running = false;
 
+    this.satellite.setFrame(0);
+
     this.hideButton('run');
 
     if (this.state.counter.switchers.value.available > 0) {
@@ -880,57 +959,121 @@ class Play extends Phaser.Scene {
   }
 
   subscribeSatellite() {
-    this.satellite.setOnCollide((data) => {
+    this.satellite.on('collide', async (data) => {
+      await this._cb.onDown({ action: 'collide' });
+
       this.running = false;
       this.satellite.setStatic(true);
+      this.satellite.setFrame(0);
       this.disableButton('ignit');
+
+      await this._cb.onComplete({ action: 'collide' });
     });
+
+    this.ee.addListener('connection-loss', async () => {
+      this.running = false;
+      this.satellite.setStatic(true);
+      this.satellite.setFrame(0);
+      this.disableButton('ignit');
+
+      await this._cb.onComplete({ action: 'connection-loss' });
+    })
+  }
+
+  unsubscribeSatellite() {
+    this.satellite.off('collide');
   }
 
   subscribeButtons() {
     // RESET SLOPE AND BALL
-    this.buttons.reset.view.on('click', (e) => {
+    this.buttons.reset.view.on('pointerdown', async (e) => {
+      this._cb.onDown({ action: 'undo' });
       // console.log('RESETED');
-
+      
       // this.reset();
       this.undo();
-      this.store();
+
+      await this._cb.onComplete({ action: 'undo' });
     });
 
     // IGNIT SATELLITE ENGINE
-    this.buttons.ignit.view.on('click', async (e) => {
+    this.buttons.ignit.view.on('pointerdown', async (e) => {
+      this._cb.onDown({ action: 'ignit' });
       // console.log('IGNITED');
-
-      this.ignit();
-      this.store();
       
-      this.subscribeArrow();
+      this.ignit();
+
+      await this._cb.onComplete({ action: 'ignit' });
     });
 
     // RUN SATELLITE
-    this.buttons.run.view.on('click', (e) => {
+    this.buttons.run.view.on('pointerdown', async (e) => {
+      this._cb.onDown({ action: 'run' });
       // console.log('STARTED');
-
+      
       this.run();
-      this.store();
+
+      await this._cb.onComplete({ action: 'run' });
     });
+  }
+
+  unsubscribeButtons() {
+    this.buttons.reset.view.off('pointerdown');
+    this.buttons.ignit.view.off('pointerdown');
+    this.buttons.run.view.off('pointerdown');
   }
 
   subscribeCounter() {
     this.counter.switchers.list.forEach((s) => {
       s.buttons.forEach((b) => {
-        b.on('click', (e) => {
+        b.on('pointerdown', async (e) => {
+          this._cb.onDown({ action: 'switcher' });
+          
           this.toggleCounter(b);
-          this.store();
+          
+          await this._cb.onComplete({ action: 'switcher' });
         });
       })
     })
   }
 
-  subscribe() {
-    this.subscribeSatellite();
-    this.subscribeButtons();
-    this.subscribeCounter();
+  unsubscribeCounter() {
+    this.counter.switchers.list.forEach((s) => {
+      s.buttons.forEach((b) => {
+        b.off('pointerdown');
+      })
+    })
+  }
+
+  subscribe(props = {}) {
+    props = {
+      onDown: () => {},
+      onComplete: async (result) => {},
+      ...props
+    };
+
+    return new Promise((resolve) => {
+      this._cb.onDown = props.onDown;
+
+      this._cb.onComplete = async (result) => {
+        await props.onComplete(result);
+        resolve();
+      };
+
+      this.subscribeSatellite();
+      [1, 2].includes(this.state.action) && this.subscribeArrow();
+      this.subscribeButtons();
+      this.subscribeCounter();
+    });
+  }
+
+  unsubscribe() {
+    this.ee.destroy();
+
+    this.unsubscribeSatellite();
+    this.unsubscribeArrow();
+    this.unsubscribeButtons();
+    this.unsubscribeCounter();
   }
 
   draw() {
@@ -965,37 +1108,63 @@ class Play extends Phaser.Scene {
 
   drawOrbit(i) {
     const o = this.orbits[i];
+    
+    const oType = ['DEFAULT', 'TARGET', 'CURRENT'][i];
+    const oConfig = config.PLANET.ORBIT[oType];
 
+    const { WIDTH, COLOR } = config.PLANET.ORBIT;
+    
+    const { opacity, ...stateProps } = this.state.planet.orbits[i];
+    
     if (i < 2) {
-      if (i === 0) {
-        // Basic orbit
+      const { dashed, radius, gap } = stateProps;
+
+      if (i === 1) {
+        // Draw target orbit's pad
+        this.graphics.lineStyle(oConfig.WIDTH, oConfig.PAD.COLOR, opacity * oConfig.PAD.OPACITY);
+        
+        // this.graphics.beginPath();
+        // this.graphics.arc(o.x, o.y, radius, 0, 2 * Math.PI);
+        // this.graphics.closePath();
+
+        this.graphics.strokeRoundedRect(o.x - radius, o.y - radius, radius * 2, radius * 2, radius);
+        this.graphics.stroke();
+      }
+
+      this.graphics.lineStyle(WIDTH, COLOR, opacity);
+
+      if (!dashed) {
         this.graphics.beginPath();
-        this.graphics.arc(o.x, o.y, o.radius, 0, 2 * Math.PI);
+        this.graphics.arc(o.x, o.y, radius, 0, 2 * Math.PI);
         this.graphics.closePath();
         this.graphics.stroke();
       }
       else {
-        // Target orbit
-        const maxAngle = Math.PI * 2;
-        const aDelta = maxAngle / (config.PLANET.ORBIT.TARGET.SEGMENTS * 2);
+        const maxAngle = (Math.PI * 2);
+
+        const aStep = maxAngle / (oConfig.SEGMENTS * 2);
+        const gSize = aStep/2 * gap;
+        const aSize = aStep - gSize;
   
         let angle = 0;
   
         while (angle < maxAngle) {
           this.graphics.beginPath();
-          this.graphics.arc(o.x, o.y, o.radius, angle, angle + aDelta);
+          this.graphics.arc(o.x, o.y, radius, angle, angle + aSize);
           this.graphics.stroke();
   
-          angle += aDelta * 2;
+          angle += aStep;
         }
       }
     }
     else {
-      if (!config.PLANET.ORBIT.CURRENT.ENABLED) return;
+      if (!oConfig.ENABLED || this.state.history.length === 1) return;
+
+      this.graphics.lineStyle(WIDTH, COLOR, opacity);
 
       // Current orbit
       this.graphics.beginPath();
-
+      
       o.forEach(({ x, y }) => this.graphics.lineTo(x, y));
 
       // this.graphics.closePath();
@@ -1003,10 +1172,24 @@ class Play extends Phaser.Scene {
     }
   }
 
-  drawOrbits() {
-    const { WIDTH, COLOR, OPACITY } = config.PLANET.ORBIT;
+  async changeOrbit(i, styles = {}, props = {}) {
+    const { dashed, ...stateStyles } = this.state.planet.orbits[i];
 
-    this.graphics.lineStyle(WIDTH, COLOR, OPACITY);
+    styles = {
+      ...stateStyles,
+      ...styles
+    };
+
+    if (i !== 2 && !dashed && styles.gap !== 0) {
+      this.state.planet.orbits[i].dashed = true;
+    }
+
+    await this.change(this.state.planet.orbits[i], styles, props);
+
+    this.state.planet.orbits[i].dashed = (i !== 2 && this.state.planet.orbits[i].gap !== 0);
+  }
+
+  drawOrbits() {
     this.orbits.forEach( (o, i) => this.drawOrbit(i) );
   }
 
@@ -1018,6 +1201,43 @@ class Play extends Phaser.Scene {
     this.matter.world.step(delta);
   }
 
+  async change(target, styles = {}, props = {}) {
+    props = {
+      onStart: (...args) => {},
+      onUpdate: (...args) => {},
+      onComplete: (...args) => {},
+      duration: 500,
+      toWait: true,
+      ...props
+    };
+
+    await new Promise((resolve) => {
+      if (!props.toWait) {
+        for (let key in styles) {
+          target[key] = styles[key];
+        }
+        resolve();
+        return;
+      }
+
+      this.tweens.add({
+        targets: target,
+        ...styles,
+        duration: props.duration,
+        onStart: props.onStart,
+        onUpdate: props.onUpdate,
+        onComplete: (...args) => {
+          props.onComplete(...args);
+          resolve();
+        }
+      });
+    });
+  }
+
+  getState() {
+    return this.state;
+  }
+
   disable() {
     this.parent.addClass('disabled');
   }
@@ -1025,6 +1245,11 @@ class Play extends Phaser.Scene {
   enable() {
     this.parent.removeClass('disabled');
   }
+
+  destroy() {
+    this.unsubscribe();
+    this.satellite.setStatic(true);
+  }
 }
 
-export default Play;
+export default Scene;
